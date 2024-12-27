@@ -1,0 +1,21 @@
+point_cloud_accumulator:
+  ros__parameters:
+    mech:
+      lidar_offset_xyz_m: 
+        - 0.0
+        - 0.0
+        - 0.02
+      lidar_offset_ypr_deg:
+        - 0.0
+        - 0.0
+        - 0.0
+      rotation_axis:
+        - 1.0
+        - 0.0
+        - 0.0
+    pointcloud:
+      enable_ordered: false
+      lidar_res_deg: 0.0225
+      max_num_layers: 200
+      topic:
+        out: "/points"
