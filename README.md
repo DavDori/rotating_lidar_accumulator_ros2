@@ -27,7 +27,7 @@ The node can be used with many configurations of a rotating back-and-forth LiDAR
 
 In the **conf0** configuration, the LiDAR is tilted of a 15 degrees and rotates along the vertical axis. It generates a point cloud similar to that of a mechanical 3D LiDAR (e.g., Velodyne Puck VLP-32).
 
-![Configuration 0 Point Cloud Example](./pics/high_density_example.png)
+![Configuration 0 Point Cloud Example](./pics/conf0.png)
 
 Launch the node using the parameters in `config/conf0.yaml`:
 
@@ -39,7 +39,7 @@ ros2 launch rotating_lidar_accumulator accumulator_conf0.launch.py
 
 In the **conf1** configuration, the LiDAR rotates along the x-axis in a up-and-down motion. It generates a point cloud with a high density of points along the additional rotation axis.
 
-![Configuration 1 Point Cloud Example](./pics/high_density_example.png)
+![Configuration 1 Point Cloud Example](./pics/conf1.png)
 
 To launch the node with the parameters in `config/conf1.yaml`, run:
 
