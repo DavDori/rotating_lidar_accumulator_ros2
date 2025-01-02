@@ -29,9 +29,10 @@ public:
     void addScan(const sensor_msgs::msg::LaserScan& scan, float angle_rad);
     void addScan(ScanLayer&& scan);
     void reset();
+    void enableOrganizedPointcloud(const PointCloudOrganizationParams& p);
+    void disableOrganizedPointcloud();
     pcl::PointCloud<pcl::PointXYZI>::Ptr getTotalPointcloud();
     sensor_msgs::msg::PointCloud2 getTotalPointcloudROS();
-    sensor_msgs::msg::PointCloud2 getTotalOrganizedPointcloudROS();
     pcl::PointCloud<pcl::PointXYZI>::Ptr getScan(int index);
     unsigned int getNumLayers() const {return scans_.size();}
     unsigned int getCurrentIndex() const {return idx_;}
@@ -47,6 +48,7 @@ private:
     std::vector<ScanLayer> scans_;
     PointCloudOrganizationParams organized_params_;
     unsigned int idx_;
+    bool enable_organize_ = false;
 };
 
 

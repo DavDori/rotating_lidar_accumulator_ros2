@@ -26,13 +26,6 @@ PointCloudBuffer::PointCloudBuffer(
           turret_axis_(turret_axis),
           idx_(0)
 {
-    float n_channels = 32.0;
-    organized_params_.h_fov_rad = 2.0 * M_PI;
-    organized_params_.h_res_rad = organized_params_.h_fov_rad / 360.0;
-    organized_params_.h_min_rad = -organized_params_.h_fov_rad / 2.0;
-    organized_params_.v_fov_rad = (30.0 / 180.0 * M_PI);
-    organized_params_.v_res_rad = organized_params_.v_fov_rad / n_channels;
-    organized_params_.v_min_rad = -organized_params_.v_fov_rad / 2.0;
     reset();
 }
 
@@ -57,11 +50,24 @@ void PointCloudBuffer::addScan(ScanLayer&& scan)
     idx_ = (idx_+1) % num_layers_;
 }
 
-
+/*
+Clear the buffer of all accumulated scans
+*/
 void PointCloudBuffer::reset()
 {
     scans_.clear();
     idx_ = 0;
+}
+
+void PointCloudBuffer::enableOrganizedPointcloud(const PointCloudOrganizationParams& p)
+{
+    organized_params_ = p;
+    enable_organize_ = true;
+}
+
+void PointCloudBuffer::disableOrganizedPointcloud()
+{
+    enable_organize_ = false;
 }
 
 // GETTERS ---------------------------------------------------------------------------------
@@ -88,28 +94,23 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr PointCloudBuffer::getTotalPointcloud()
 }
 
 /*
-Merge all pointclouds and returns a pointcloud2 message for ros2
+Merge all pointclouds and returns a pointcloud2 message for ros2. Depending on 
+the settings, the pointcloud can be organized or not.
 */
 sensor_msgs::msg::PointCloud2 PointCloudBuffer::getTotalPointcloudROS()
 {
     pcl::PointCloud<pcl::PointXYZI>::Ptr pc = getTotalPointcloud();
     sensor_msgs::msg::PointCloud2 cloud_msg;
-    pcl::toROSMsg(*pc, cloud_msg);  
 
+    if(enable_organize_)
+    {
+        cloud_msg = organizePointCloud2(pc, organized_params_);
+    }
+    else
+    {
+        pcl::toROSMsg(*pc, cloud_msg);  
+    }
     return cloud_msg;
-}
-
-/*
-Merge all pointclouds after the corresponding transformation
-has been applied into a organized pointcloud message for ros2.
-*/
-sensor_msgs::msg::PointCloud2 PointCloudBuffer::getTotalOrganizedPointcloudROS()
-{
-
-    pcl::PointCloud<pcl::PointXYZI>::Ptr unorganized =  getTotalPointcloud();
-    sensor_msgs::msg::PointCloud2 organized = organizePointCloud2(
-        unorganized, organized_params_);
-    return organized;
 }
 
 float PointCloudBuffer::getMaxLayerAngleRad() const

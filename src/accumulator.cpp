@@ -21,6 +21,7 @@
 // Custom
 #include "rotating_lidar_accumulator/point_cloud_buffer.h"
 
+
 bool hasVelocityChanged(double vel_prev, double vel)
 {
     return vel_prev * vel < 0.0;
@@ -36,32 +37,61 @@ public:
         declare_parameter("mech.lidar_offset_xyz_m", std::vector<float>{0.0f,0.0f,0.0f});
         declare_parameter("mech.lidar_offset_ypr_deg", std::vector<float>{0.0f,0.0f,0.0f});
         declare_parameter("mech.rotation_axis", std::vector<float>{0.0f,1.0f,0.0f}); 
-        declare_parameter("pointcloud.enable_ordered", false); 
-        declare_parameter("pointcloud.topic.out", "/pointcloud"); 
-        declare_parameter("pointcloud.lidar_agular_res_deg", 0.225);
+        declare_parameter("pointcloud.enable_organized", false); 
+        declare_parameter("pointcloud.topic.out", "/pointcloud");
+        declare_parameter("pointcloud.frame_id", "/lidar_base");
         declare_parameter("pointcloud.max_num_layers", 200);
+        declare_parameter("pointcloud.azimuth.res_deg", 0.225);
+        declare_parameter("pointcloud.azimuth.fov_deg", 360.0);
+        declare_parameter("pointcloud.azimuth.min_deg", -180.0);
+        declare_parameter("pointcloud.elevation.res_deg", 1.0);
+        declare_parameter("pointcloud.elevation.fov_deg", 30.0);
+        declare_parameter("pointcloud.elevation.min_deg", -15.0);
 
 
-        lidar_agular_res_deg_ = (float) get_parameter("pointcloud.lidar_agular_res_deg").as_double();
         unsigned int max_layers = get_parameter("pointcloud.max_num_layers").as_int();
-        en_organzied_point_cloud_ = get_parameter("pointcloud.enable_ordered").as_bool();
+        bool en_organzied_pointcloud = get_parameter("pointcloud.enable_organized").as_bool();
         std::string pointcloud_topic_out = get_parameter("pointcloud.topic.out").as_string();
+        frame_id_ = get_parameter("pointcloud.frame_id").as_string();
         // Initialize point cloud buffer
-        std::vector<float> rotation_axis_vec = convToFloat(get_parameter("mech.rotation_axis").as_double_array());
+        std::vector<float> rotation_axis_vec = 
+            convToFloat(get_parameter("mech.rotation_axis").as_double_array());
         Eigen::Vector3f rotation_axis(rotation_axis_vec.data());
 
         AffineTransform3f tform_offset = computeOffsetTransformation();
         buff_ = PointCloudBuffer(max_layers, tform_offset, rotation_axis);
 
+        PointCloudOrganizationParams params;
+        params.azim_res_rad = (float) 
+            DEG2RAD(get_parameter("pointcloud.azimuth.res_deg").as_double());
+        params.azim_fov_rad = (float) 
+            DEG2RAD(get_parameter("pointcloud.azimuth.fov_deg").as_double());
+        params.azim_min_rad = (float)
+            DEG2RAD(get_parameter("pointcloud.azimuth.min_deg").as_double());
+        params.elev_res_rad = (float) 
+            DEG2RAD(get_parameter("pointcloud.elevation.res_deg").as_double());
+        params.elev_fov_rad = (float) 
+            DEG2RAD(get_parameter("pointcloud.elevation.fov_deg").as_double());
+        params.elev_min_rad = (float) 
+            DEG2RAD(get_parameter("pointcloud.elevation.min_deg").as_double());
+
+        if(en_organzied_pointcloud)
+        {
+            buff_.enableOrganizedPointcloud(params);
+        }
         // Set Quality Of Service for subscribers as sensor to prioritize the most
         // recent message, and improve reliability + low latency
         auto sensor_qos = rclcpp::QoS(rclcpp::SensorDataQoS());
         // Initialize subscriptions
         laser_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
-            "/scan", sensor_qos, std::bind(&PointCloudAccumulator::laserCallback, this, std::placeholders::_1));
+            "/scan", 
+            sensor_qos, 
+            std::bind(&PointCloudAccumulator::laserCallback, this, std::placeholders::_1));
 
         angle_sub_ = create_subscription<sensor_msgs::msg::JointState>(
-            "/angle", sensor_qos, std::bind(&PointCloudAccumulator::angleCallback, this, std::placeholders::_1));
+            "/angle", 
+            sensor_qos, 
+            std::bind(&PointCloudAccumulator::angleCallback, this, std::placeholders::_1));
 
         point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
             pointcloud_topic_out, 5);
@@ -73,35 +103,49 @@ public:
         std::vector<double> offsets_xyz = get_parameter("mech.lidar_offset_xyz_m").as_double_array();
         std::vector<double> offsets_ypr = get_parameter("mech.lidar_offset_ypr_deg").as_double_array();
 
-        RCLCPP_INFO(this->get_logger(), "\n--- Parameters ---");
-        RCLCPP_INFO(this->get_logger(), "  - LiDAR offset xyz: [%.2f, %.2f, %.2f] m", 
-            offsets_xyz[0], offsets_xyz[1], offsets_xyz[2]);
-        RCLCPP_INFO(this->get_logger(), "  - LiDAR offset ypr: [%.2f, %.2f, %.2f] deg", 
-            offsets_ypr[0], offsets_ypr[1], offsets_ypr[2]);
-        RCLCPP_INFO(this->get_logger(), "  - turret rotation axis: [%.2f, %.2f, %.2f]", 
-            rotation_axis_vec[0], rotation_axis_vec[1], rotation_axis_vec[2]);
-        RCLCPP_INFO(this->get_logger(), "  - pointcloud out topic: %s", pointcloud_topic_out.c_str());
-        RCLCPP_INFO(this->get_logger(), "  - max number of layers: %d", max_layers);
-        RCLCPP_INFO(this->get_logger(), "  - using orderd pointcloud: %s", en_organzied_point_cloud_ ? "true" : "false");
-        RCLCPP_INFO(this->get_logger(), "     * 2D LiDAR agular resolution: %.3f deg", lidar_agular_res_deg_);
+        std::ostringstream general_params;
+        general_params << "\n--- Parameters ---\n"
+            << "  - LiDAR offset:\n"
+            << "      * xyz: [" << offsets_xyz[0] << ", " << offsets_xyz[1] << ", " << offsets_xyz[2] << "] m\n"
+            << "      * ypr: [" << offsets_ypr[0] << ", " << offsets_ypr[1] << ", " << offsets_ypr[2] << "] deg\n"
+            << "  - Turret rotation axis: [" << rotation_axis_vec[0] << ", " << rotation_axis_vec[1] << ", " << rotation_axis_vec[2] << "]\n"
+            << "  - Pointcloud output topic: " << pointcloud_topic_out << "\n"
+            << "  - Pointcloud output frame id: " << frame_id_ << "\n"
+            << "  - Max number of layers: " << max_layers << "\n"
+            << "  - Using organized pointcloud: " << (en_organzied_pointcloud ? "true" : "false") << "\n";
 
+        RCLCPP_INFO(this->get_logger(), "%s", general_params.str().c_str());
+
+        // Second string for organized pointcloud parameters
+        if (en_organzied_pointcloud) {
+            std::ostringstream organized_params;
+            organized_params << "\n--- Point Cloud Organization Parameters ---\n"
+                << "  - Azimuth\n"
+                << "      * resolution: " << RAD2DEG(params.azim_res_rad) << " deg\n"
+                << "      * FOV: " << RAD2DEG(params.azim_fov_rad) << " deg\n"
+                << "      * start angle: " << RAD2DEG(params.azim_min_rad) << " deg\n"
+                << "  - Elevation\n"
+                << "      * resolution: " << RAD2DEG(params.elev_res_rad) << " deg\n"
+                << "      * FOV: " << RAD2DEG(params.elev_fov_rad) << " deg\n"
+                << "      * start angle: " << RAD2DEG(params.elev_min_rad) << " deg\n";
+
+            RCLCPP_INFO(this->get_logger(), "%s", organized_params.str().c_str());
+        }
         RCLCPP_INFO(this->get_logger(), "PointCloudAccumulator initialized successfully.");
-
-        PointCloudOrganizationParams params = buff_.getOrganizationParams();
     }
 
   private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr point_cloud_pub_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_sub_;
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr angle_sub_;
+    std::string frame_id_;
 
     rclcpp::Time last_angle_time_;
     PointCloudBuffer buff_;
 
     double scan_angle_rad_;
     double scan_vel_radps_;
-    float lidar_agular_res_deg_;
-    bool en_organzied_point_cloud_;
+
     bool is_new_sweep_ = false;
 
 //--CALLBACKS------------------------------------------------------------------------
@@ -214,12 +258,9 @@ public:
         sensor_msgs::msg::PointCloud2 cloud_msg;
         try 
         {
-            if(en_organzied_point_cloud_)
-                cloud_msg = buff_.getTotalOrganizedPointcloudROS();
-            else
-                cloud_msg = buff_.getTotalPointcloudROS();
+            cloud_msg = buff_.getTotalPointcloudROS();
         
-            cloud_msg.header.frame_id = "base_link";
+            cloud_msg.header.frame_id = frame_id_;
             cloud_msg.header.stamp = this->get_clock()->now();
 
             point_cloud_pub_->publish(cloud_msg);
