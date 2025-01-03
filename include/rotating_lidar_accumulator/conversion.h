@@ -10,12 +10,12 @@
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
 struct PointCloudOrganizationParams {
-    float h_fov_rad = 0.0f;
-    float h_res_rad = 0.0f;
-    float h_min_rad = 0.0f;
-    float v_fov_rad = 0.0f;
-    float v_res_rad = 0.0f;
-    float v_min_rad = 0.0f;
+    float azim_fov_rad = 0.0f;
+    float azim_res_rad = 0.0f;
+    float azim_min_rad = 0.0f;
+    float elev_fov_rad = 0.0f;
+    float elev_res_rad = 0.0f;
+    float elev_min_rad = 0.0f;
 };
 
 pcl::PointCloud<pcl::PointXYZI>::Ptr convertLaserScanToPointCloud(

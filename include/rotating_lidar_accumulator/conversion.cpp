@@ -51,8 +51,8 @@ sensor_msgs::msg::PointCloud2 organizePointCloud2(
 {
 
     // Define organized cloud dimensions
-    int width = static_cast<int>(std::round(params.h_fov_rad / params.h_res_rad));
-    int height = static_cast<int>(std::round(params.v_fov_rad / params.v_res_rad));
+    int width = static_cast<int>(std::round(params.azim_fov_rad / params.azim_res_rad));
+    int height = static_cast<int>(std::round(params.elev_fov_rad / params.elev_res_rad));
 
     // Initialize the organized PointCloud2 message
     sensor_msgs::msg::PointCloud2 organized_cloud;
@@ -118,10 +118,10 @@ int calculatePointCol(const pcl::PointXYZI& point,
     const PointCloudOrganizationParams& params)
 {
     // Calculate azimuth angle in rad and corresponding column index
-    float azimuth_rad = std::atan2(point.y, point.x);
-    float azimuth_delta_rad = azimuth_rad - params.h_min_rad;
+    float azim_rad = std::atan2(point.y, point.x);
+    float azim_delta_rad = azim_rad - params.azim_min_rad;
 
-    int col = static_cast<int>(std::floor(azimuth_delta_rad / params.h_res_rad));
+    int col = static_cast<int>(std::floor(azim_delta_rad / params.azim_res_rad));
     return col;
 }
 
@@ -129,10 +129,10 @@ int calculatePointRow(const pcl::PointXYZI& point,
     const PointCloudOrganizationParams& params)
 {
     // Calculate corresponding row index
-    float elevation_rad = std::asin(point.z / std::sqrt(point.x * point.x + point.y * point.y + point.z * point.z));
-    float elevation_delta_rad = elevation_rad - params.v_min_rad;
+    float elev_rad = std::asin(point.z / std::sqrt(point.x * point.x + point.y * point.y + point.z * point.z));
+    float elev_delta_rad = elev_rad - params.elev_min_rad;
 
-    int row = static_cast<int>(std::floor(elevation_delta_rad / params.v_res_rad));
+    int row = static_cast<int>(std::floor(elev_delta_rad / params.elev_res_rad));
     return row;
 }
 
