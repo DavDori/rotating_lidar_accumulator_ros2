@@ -56,13 +56,19 @@ ros2 launch rotating_lidar_accumulator accumulator_conf1.launch.py
 
 | Parameter Name                   | Description                                         | Default Value                     |
 |----------------------------------|-----------------------------------------------------|-----------------------------------|
-| `mech.lidar_offset_xyz_m`        | LiDAR positional offset in meters (x, y, z).       | `[0.0, 0.0, 0.0]`                |
-| `mech.lidar_offset_ypr_deg`      | LiDAR orientation offset in degrees (yaw, pitch, roll). | `[0.0, 0.0, 0.0]`            |
-| `mech.rotation_axis`             | Axis of rotation for the LiDAR (x, y, z).          | `[0.0, 1.0, 0.0]`                |
-| `pointcloud.topic.out`           | Name of the output topic.                           | `/pointcloud`                |
-| `pointcloud.ordered`             | Generate organized point clouds (true/false).      | `false`                          |
-| `pointcloud.lidar_angular_res_deg` | Angular resolution of the 2D LiDAR in degrees.    | `0.225`                          |
-| `pointcloud.max_num_layers`      | Maximum number of scan layers.              | `200`                            |
+| `mech.lidar_offset_xyz_m`        | LiDAR positional offset in meters (x, y, z).       | `[0.0, 0.0, 0.0]`|
+| `mech.lidar_offset_ypr_deg`      | LiDAR orientation offset in degrees (yaw, pitch, roll). | `[0.0, 0.0, 0.0]`|
+| `mech.rotation_axis`             | Axis of rotation for the LiDAR (x, y, z).          | `[0.0, 1.0, 0.0]`|
+| `pointcloud.topic.out`           | Name of the output topic.                           | `/pointcloud`|
+| `pointcloud.frame_id`           | Name of the frame id of the output pointcloud.                           | `lidar_base`|
+| `pointcloud.max_num_layers`      | Maximum number of scan layers that can be accumulated.              | `200`|
+| `pointcloud.organized`             | Generate organized point clouds (true/false).      | `false`|
+| `pointcloud.azimuth.res_deg` | Azimuth angular resolution of the organized pointcloud in degrees.    | `0.225`|
+| `pointcloud.azimuth.fov_deg` | Azimuth Field of View (FOV) of the organized pointcloud in degrees.    | `360.0`|
+| `pointcloud.azimuth.min_deg` | Starting angle of the Azimuth FOV of the organized pointcloud in degrees.    | `-180.0`|
+| `pointcloud.elevation.res_deg` | Elevation angular resolution of the organized pointcloud in degrees.    | `1.0`|
+| `pointcloud.elevation.fov_deg` | Elevation Field of View (FOV) of the organized pointcloud in degrees.    | `30.0`|
+| `pointcloud.elevation.min_deg` | Starting angle of the Elevation FOV of the organized pointcloud in degrees.    | `-15.0`|
 
 ## Topics
 
