@@ -28,7 +28,8 @@ public:
         const sensor_msgs::msg::LaserScan& scan_msg,
         const Eigen::Transform<float, 3, Eigen::Affine>& lidar_offset,
         const Eigen::Vector3f& rotation_axis,
-        float angle_rad);
+        float initial_psi_rad,
+        float delta_psi_rad);
     ScanLayer(const ScanLayer& other);
     ScanLayer& operator=(const ScanLayer& other);
     ScanLayer(ScanLayer&& other) noexcept;

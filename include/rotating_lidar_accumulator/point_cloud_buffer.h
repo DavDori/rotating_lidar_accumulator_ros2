@@ -26,7 +26,10 @@ public:
             );
     ~PointCloudBuffer() {}
 
-    void addScan(const sensor_msgs::msg::LaserScan& scan, float angle_rad);
+    void addScan(
+        const sensor_msgs::msg::LaserScan& scan, 
+        float angle_rad,
+        float delta_psi_rad);
     void addScan(ScanLayer&& scan);
     void reset();
     void enableOrganizedPointcloud(const PointCloudOrganizationParams& p);

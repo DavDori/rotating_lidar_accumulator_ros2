@@ -32,9 +32,10 @@ PointCloudBuffer::PointCloudBuffer(
 
 void PointCloudBuffer::addScan(
     const sensor_msgs::msg::LaserScan& scan,
-    float angle_rad)
+    float angle_rad, 
+    float delta_psi_rad)
 {
-    addScan(ScanLayer(scan, lidar_offset_, turret_axis_, angle_rad));
+    addScan(ScanLayer(scan, lidar_offset_, turret_axis_, angle_rad, delta_psi_rad));
 }
 
 void PointCloudBuffer::addScan(ScanLayer&& scan)

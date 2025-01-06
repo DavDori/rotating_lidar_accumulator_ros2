@@ -169,7 +169,8 @@ public:
             double dt_s = time_difference.seconds();
 
             double current_angle_rad = predictScanAngle(dt_s);
-            buff_.addScan(msg, current_angle_rad);
+            double delta_angle_rad = msg.time_increment * scan_vel_radps_;
+            buff_.addScan(msg, current_angle_rad, delta_angle_rad);
         }
         catch(const std::exception& e)
         {
