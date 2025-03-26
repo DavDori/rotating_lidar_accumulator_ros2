@@ -36,9 +36,12 @@ public:
     {
         declare_parameter("mech.lidar_offset_xyz_m", std::vector<float>{0.0f,0.0f,0.0f});
         declare_parameter("mech.lidar_offset_ypr_deg", std::vector<float>{0.0f,0.0f,0.0f});
-        declare_parameter("mech.rotation_axis", std::vector<float>{0.0f,1.0f,0.0f}); 
-        declare_parameter("pointcloud.enable_organized", false); 
-        declare_parameter("pointcloud.topic.out", "/pointcloud");
+        declare_parameter("mech.rotation_axis", std::vector<float>{0.0f,1.0f,0.0f});
+        declare_parameter("topic.in.scan", "/scan");
+        declare_parameter("topic.in.angle", "/turret/angle");
+        declare_parameter("topic.out.cloud", "/turret/cloud");
+
+        declare_parameter("pointcloud.enable_organized", false);
         declare_parameter("pointcloud.frame_id", "/lidar_base");
         declare_parameter("pointcloud.max_num_layers", 200);
         declare_parameter("pointcloud.azimuth.res_deg", 0.225);
@@ -51,7 +54,10 @@ public:
 
         unsigned int max_layers = get_parameter("pointcloud.max_num_layers").as_int();
         bool en_organzied_pointcloud = get_parameter("pointcloud.enable_organized").as_bool();
-        std::string pointcloud_topic_out = get_parameter("pointcloud.topic.out").as_string();
+        std::string topic_in_scan = get_parameter("topic.in.scan").as_string();
+        std::string topic_in_angle = get_parameter("topic.in.angle").as_string();
+        std::string topic_out_cloud = get_parameter("topic.out.cloud").as_string();
+
         frame_id_ = get_parameter("pointcloud.frame_id").as_string();
         // Initialize point cloud buffer
         std::vector<float> rotation_axis_vec = 
@@ -84,17 +90,17 @@ public:
         auto sensor_qos = rclcpp::QoS(rclcpp::SensorDataQoS());
         // Initialize subscriptions
         laser_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
-            "/scan", 
+            topic_in_scan, 
             sensor_qos, 
             std::bind(&PointCloudAccumulator::laserCallback, this, std::placeholders::_1));
 
         angle_sub_ = create_subscription<sensor_msgs::msg::JointState>(
-            "/angle", 
-            sensor_qos, 
+            topic_in_angle, 
+            sensor_qos,
             std::bind(&PointCloudAccumulator::angleCallback, this, std::placeholders::_1));
 
         point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
-            pointcloud_topic_out, 5);
+            topic_out_cloud, 5);
 
         last_angle_time_ = this->get_clock()->now();
         scan_angle_rad_ = 0.0;
@@ -109,7 +115,9 @@ public:
             << "      * xyz: [" << offsets_xyz[0] << ", " << offsets_xyz[1] << ", " << offsets_xyz[2] << "] m\n"
             << "      * ypr: [" << offsets_ypr[0] << ", " << offsets_ypr[1] << ", " << offsets_ypr[2] << "] deg\n"
             << "  - Turret rotation axis: [" << rotation_axis_vec[0] << ", " << rotation_axis_vec[1] << ", " << rotation_axis_vec[2] << "]\n"
-            << "  - Pointcloud output topic: " << pointcloud_topic_out << "\n"
+            << "  - Topic in scan: " << topic_in_scan << "\n"
+            << "  - Topic in angle: " << topic_in_angle << "\n"
+            << "  - Topic out pointcloud: " << topic_out_cloud << "\n"
             << "  - Pointcloud output frame id: " << frame_id_ << "\n"
             << "  - Max number of layers: " << max_layers << "\n"
             << "  - Using organized pointcloud: " << (en_organzied_pointcloud ? "true" : "false") << "\n";
@@ -199,8 +207,6 @@ public:
         scan_vel_radps_ = msg.velocity[0];
         // Use the time of arrival as reference
         last_angle_time_ = this->get_clock()->now();
-        
-        RCLCPP_DEBUG(this->get_logger(), "Updated angle to %.2f and velocity to %.2f", scan_angle_rad_, scan_vel_radps_);
     }
     
 //-----------------------------------------------------------------------------------------------
