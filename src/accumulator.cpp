@@ -152,11 +152,16 @@ public:
     double scan_vel_radps_;
 
     bool is_new_sweep_ = false;
+    bool first_frame_ = true;
 
 //--CALLBACKS------------------------------------------------------------------------
     
     void laserCallback(const sensor_msgs::msg::LaserScan& msg)
     {
+        if(first_frame_)
+        {
+            return;
+        }
         try{
             if(is_new_sweep_)
             {
@@ -165,7 +170,7 @@ public:
                     this->get_logger(), 
                     "Published pointcloud made of %u layers", 
                     buff_.getNumLayers());
-                buff_.reset();
+                buff_.newSweep();
                 is_new_sweep_ = false;
             }
 
@@ -197,6 +202,7 @@ public:
         if(hasVelocityChanged(scan_vel_radps_, msg.velocity[0]))
         {
             is_new_sweep_ = true;
+            first_frame_ = false;
         }
         
         // Update values
