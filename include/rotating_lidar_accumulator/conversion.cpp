@@ -21,9 +21,9 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr convertLaserScanToPointCloud(
     return pcl_cloud;
 }
 
-pcl::PointXYZI convertScanRayToPoint(float range, float angle, float intensity)
+inline PointXYZIRT convertScanRayToPoint(float range, float angle, float intensity)
 {
-    pcl::PointXYZI point;
+    PointXYZIRT point;
     point.x = range * std::cos(angle);
     point.y = range * std::sin(angle);
     point.z = 0.0;  // scan is considerd on a x-y plane
@@ -46,7 +46,7 @@ bool isRangeInvalid(float range, float max_range)
 }
 
 sensor_msgs::msg::PointCloud2 organizePointCloud2(
-    const pcl::PointCloud<pcl::PointXYZI>::Ptr& unorganized_cloud,
+    const pcl::PointCloud<PointXYZIRT>::Ptr& unorganized_cloud,
     const PointCloudOrganizationParams& params)
 {
 
@@ -60,7 +60,7 @@ sensor_msgs::msg::PointCloud2 organizePointCloud2(
     organized_cloud.height = height;
     organized_cloud.is_dense = false;
     organized_cloud.is_bigendian = false;
-    organized_cloud.point_step = 16;  // 4 fields of float32 (x, y, z, intensity)
+    organized_cloud.point_step = 21;  // 5 fields of float32 (x, y, z, intensity, time) + ring of uint8
     organized_cloud.row_step = organized_cloud.point_step * width;
 
     // Define fields for XYZ and Intensity
@@ -69,7 +69,9 @@ sensor_msgs::msg::PointCloud2 organizePointCloud2(
         "x", 1, sensor_msgs::msg::PointField::FLOAT32,
         "y", 1, sensor_msgs::msg::PointField::FLOAT32,
         "z", 1, sensor_msgs::msg::PointField::FLOAT32,
-        "intensity", 1, sensor_msgs::msg::PointField::FLOAT32);
+        "intensity", 1, sensor_msgs::msg::PointField::FLOAT32,
+        "ring", 1, sensor_msgs::msg::PointField::UINT8,
+        "time", 1, sensor_msgs::msg::PointField::FLOAT32);
 
     // Resize the cloud to accommodate width * height points
     modifier.resize(width * height);
@@ -79,6 +81,8 @@ sensor_msgs::msg::PointCloud2 organizePointCloud2(
     sensor_msgs::PointCloud2Iterator<float> iter_y(organized_cloud, "y");
     sensor_msgs::PointCloud2Iterator<float> iter_z(organized_cloud, "z");
     sensor_msgs::PointCloud2Iterator<float> iter_intensity(organized_cloud, "intensity");
+    sensor_msgs::PointCloud2Iterator<uint8_t> iter_ring(organized_cloud, "ring");
+    sensor_msgs::PointCloud2Iterator<float> iter_time(organized_cloud, "time");
 
 
     // Initialize to NaN
@@ -86,6 +90,8 @@ sensor_msgs::msg::PointCloud2 organizePointCloud2(
     {
         *iter_x = *iter_y = *iter_z = std::numeric_limits<float>::quiet_NaN();
         *iter_intensity = std::numeric_limits<float>::quiet_NaN();
+        *iter_ring = std::numeric_limits<uint8_t>::quiet_NaN();
+        *iter_time = std::numeric_limits<float>::quiet_NaN();
     }
     // Fill with values
     for (const auto& point : unorganized_cloud->points) 
@@ -114,7 +120,7 @@ sensor_msgs::msg::PointCloud2 organizePointCloud2(
     return organized_cloud;
 }
 
-int calculatePointCol(const pcl::PointXYZI& point,  
+inline int calculatePointCol(const PointXYZIRT& point,  
     const PointCloudOrganizationParams& params)
 {
     // Calculate azimuth angle in rad and corresponding column index
@@ -125,7 +131,7 @@ int calculatePointCol(const pcl::PointXYZI& point,
     return col;
 }
 
-int calculatePointRow(const pcl::PointXYZI& point,  
+inline int calculatePointRow(const PointXYZIRT& point,  
     const PointCloudOrganizationParams& params)
 {
     // Calculate corresponding row index

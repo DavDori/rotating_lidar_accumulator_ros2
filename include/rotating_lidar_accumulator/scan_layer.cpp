@@ -23,7 +23,7 @@ ScanLayer::ScanLayer(
 
 ScanLayer::ScanLayer(const ScanLayer& other)
     : timestamp_(other.timestamp_), angle_rad_(other.angle_rad_),
-    pc_(std::make_shared<pcl::PointCloud<pcl::PointXYZI>>(*other.pc_))
+    pc_(std::make_shared<pcl::PointCloud<PointXYZIRT>>(*other.pc_))
 {}
 
 ScanLayer& ScanLayer::operator=(const ScanLayer& other) 
@@ -31,7 +31,7 @@ ScanLayer& ScanLayer::operator=(const ScanLayer& other)
     if(this != &other) {
         // Deep copy of the point cloud
         timestamp_ = other.timestamp_;
-        pc_ = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>(*other.pc_);
+        pc_ = std::make_shared<pcl::PointCloud<PointXYZIRT>>(*other.pc_);
     }
     return *this;
 }

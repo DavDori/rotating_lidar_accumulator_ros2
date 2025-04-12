@@ -35,14 +35,14 @@ public:
     ScanLayer& operator=(ScanLayer&& other) noexcept;
     ~ScanLayer() = default;
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr getPointCloud() {return pc_;}
+    pcl::PointCloud<PointXYZIRT>::Ptr getPointCloud() {return pc_;}
     rclcpp::Time getTime() const {return timestamp_;}
     float getAngleRad() const {return angle_rad_;}
     size_t getNumPoints() const {return pc_->size();}
 private:
     rclcpp::Time timestamp_;
     float angle_rad_;
-    pcl::PointCloud<pcl::PointXYZI>::Ptr pc_;
+    pcl::PointCloud<PointXYZIRT>::Ptr pc_;
 };
 
 #endif

@@ -31,11 +31,10 @@ public:
     void reset();
     void enableOrganizedPointcloud(const PointCloudOrganizationParams& p);
     void disableOrganizedPointcloud();
-    pcl::PointCloud<pcl::PointXYZI>::Ptr getTotalPointcloud();
+    pcl::PointCloud<PointXYZIRT>::Ptr getTotalPointcloud();
     sensor_msgs::msg::PointCloud2 getTotalPointcloudROS();
-    pcl::PointCloud<pcl::PointXYZI>::Ptr getScan(int index);
     unsigned int getNumLayers() const {return scans_.size();}
-    unsigned int getCurrentIndex() const {return idx_;}
+    pcl::PointCloud<PointXYZIRT>::Ptr getScan(int index);
     PointCloudOrganizationParams getOrganizationParams() const {return organized_params_;}
     float getMaxLayerAngleRad() const;
     float getMinLayerAngleRad() const;

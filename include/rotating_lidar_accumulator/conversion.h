@@ -9,6 +9,20 @@
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
+struct PointXYZIRT
+{
+    PCL_ADD_POINT4D
+    PCL_ADD_INTENSITY
+    uint16_t ring;
+    float time;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+} EIGEN_ALIGN16;
+
+POINT_CLOUD_REGISTER_POINT_STRUCT (PointXYZIRT,
+    (float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity)
+    (uint16_t, ring, ring) (float, time, time)
+)
+
 struct PointCloudOrganizationParams {
     float azim_fov_rad = 0.0f;
     float azim_res_rad = 0.0f;
@@ -18,22 +32,23 @@ struct PointCloudOrganizationParams {
     float elev_min_rad = 0.0f;
 };
 
-pcl::PointCloud<pcl::PointXYZI>::Ptr convertLaserScanToPointCloud(
-    const sensor_msgs::msg::LaserScan& scan_msg
-    );
+pcl::PointCloud<PointXYZIRT>::Ptr convertLaserScanToPointCloud(
+    const sensor_msgs::msg::LaserScan& scan_msg,
+    int ring_id,
+    int num_scan);
 
-pcl::PointXYZI convertScanRayToPoint(float range, float angle, float intensity);
+inline PointXYZIRT convertScanRayToPoint(float range, float angle, float intensity);
 
-bool isRangeInvalid(float range, float max_range);
+inline bool isRangeInvalid(float range, float max_range);
 
 sensor_msgs::msg::PointCloud2 organizePointCloud2(
-    const pcl::PointCloud<pcl::PointXYZI>::Ptr& unorganized_cloud,
+    const pcl::PointCloud<PointXYZIRT>::Ptr& unorganized_cloud,
     const PointCloudOrganizationParams& params);
 
-int calculatePointCol(const pcl::PointXYZI& point,  
+inline int calculatePointCol(const PointXYZIRT& point,  
     const PointCloudOrganizationParams& params);
 
-int calculatePointRow(const pcl::PointXYZI& point,  
+inline int calculatePointRow(const PointXYZIRT& point,  
     const PointCloudOrganizationParams& params);
 
 std::vector<float> convToFloat(const std::vector<double>& input);
