@@ -17,11 +17,11 @@ point_cloud_accumulator:
       out:
         cloud: "turret/lidar"
       in:
-        angle: "turret/angle"
+        angle: "angle"
         scan: "scan"
     pointcloud:
       frame_id: "lidar_base"
-      enable_organized: true
+      enable_organized: false
       azimuth:
         res_deg: 0.225
         fov_deg: 360.0

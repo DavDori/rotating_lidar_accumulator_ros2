@@ -28,21 +28,24 @@ public:
         const sensor_msgs::msg::LaserScan& scan_msg,
         const Eigen::Transform<float, 3, Eigen::Affine>& lidar_offset,
         const Eigen::Vector3f& rotation_axis,
-        float angle_rad);
+        float angle_rad,
+        int ring_id,
+        int num_scan
+        );
     ScanLayer(const ScanLayer& other);
     ScanLayer& operator=(const ScanLayer& other);
     ScanLayer(ScanLayer&& other) noexcept;
     ScanLayer& operator=(ScanLayer&& other) noexcept;
     ~ScanLayer() = default;
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr getPointCloud() {return pc_;}
+    pcl::PointCloud<PointXYZIRT>::Ptr getPointCloud() {return pc_;}
     rclcpp::Time getTime() const {return timestamp_;}
     float getAngleRad() const {return angle_rad_;}
     size_t getNumPoints() const {return pc_->size();}
 private:
     rclcpp::Time timestamp_;
     float angle_rad_;
-    pcl::PointCloud<pcl::PointXYZI>::Ptr pc_;
+    pcl::PointCloud<PointXYZIRT>::Ptr pc_;
 };
 
 #endif

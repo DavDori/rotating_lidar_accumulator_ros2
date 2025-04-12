@@ -43,7 +43,6 @@ public:
 
         declare_parameter("pointcloud.enable_organized", false);
         declare_parameter("pointcloud.frame_id", "/lidar_base");
-        declare_parameter("pointcloud.max_num_layers", 200);
         declare_parameter("pointcloud.azimuth.res_deg", 0.225);
         declare_parameter("pointcloud.azimuth.fov_deg", 360.0);
         declare_parameter("pointcloud.azimuth.min_deg", -180.0);
@@ -52,7 +51,6 @@ public:
         declare_parameter("pointcloud.elevation.min_deg", -15.0);
 
 
-        unsigned int max_layers = get_parameter("pointcloud.max_num_layers").as_int();
         bool en_organzied_pointcloud = get_parameter("pointcloud.enable_organized").as_bool();
         std::string topic_in_scan = get_parameter("topic.in.scan").as_string();
         std::string topic_in_angle = get_parameter("topic.in.angle").as_string();
@@ -65,7 +63,7 @@ public:
         Eigen::Vector3f rotation_axis(rotation_axis_vec.data());
 
         AffineTransform3f tform_offset = computeOffsetTransformation();
-        buff_ = PointCloudBuffer(max_layers, tform_offset, rotation_axis);
+        buff_ = PointCloudBuffer(tform_offset, rotation_axis);
 
         PointCloudOrganizationParams params;
         params.azim_res_rad = (float) 
@@ -119,7 +117,6 @@ public:
             << "  - Topic in angle: " << topic_in_angle << "\n"
             << "  - Topic out pointcloud: " << topic_out_cloud << "\n"
             << "  - Pointcloud output frame id: " << frame_id_ << "\n"
-            << "  - Max number of layers: " << max_layers << "\n"
             << "  - Using organized pointcloud: " << (en_organzied_pointcloud ? "true" : "false") << "\n";
 
         RCLCPP_INFO(this->get_logger(), "%s", general_params.str().c_str());
@@ -155,11 +152,16 @@ public:
     double scan_vel_radps_;
 
     bool is_new_sweep_ = false;
+    bool first_frame_ = true;
 
 //--CALLBACKS------------------------------------------------------------------------
     
     void laserCallback(const sensor_msgs::msg::LaserScan& msg)
     {
+        if(first_frame_)
+        {
+            return;
+        }
         try{
             if(is_new_sweep_)
             {
@@ -168,7 +170,7 @@ public:
                     this->get_logger(), 
                     "Published pointcloud made of %u layers", 
                     buff_.getNumLayers());
-                buff_.reset();
+                buff_.newSweep();
                 is_new_sweep_ = false;
             }
 
@@ -200,6 +202,7 @@ public:
         if(hasVelocityChanged(scan_vel_radps_, msg.velocity[0]))
         {
             is_new_sweep_ = true;
+            first_frame_ = false;
         }
         
         // Update values

@@ -13,10 +13,13 @@ point_cloud_accumulator:
         - 0.0
         - 0.0
         - -1.0
+    topic:
+      out:
+        cloud: "turret/lidar"
+      in:
+        angle: "turret/angle"
+        scan: "scan"
     pointcloud:
-      max_num_layers: 200
-      topic:
-        out: "/points"
       frame_id: "lidar_base"
       enable_organized: true
       azimuth:
