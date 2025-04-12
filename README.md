@@ -59,9 +59,10 @@ ros2 launch rotating_lidar_accumulator accumulator_conf1.launch.py
 | `mech.lidar_offset_xyz_m`        | LiDAR positional offset in meters (x, y, z).       | `[0.0, 0.0, 0.0]`|
 | `mech.lidar_offset_ypr_deg`      | LiDAR orientation offset in degrees (yaw, pitch, roll). | `[0.0, 0.0, 0.0]`|
 | `mech.rotation_axis`             | Axis of rotation for the LiDAR (x, y, z).          | `[0.0, 1.0, 0.0]`|
-| `pointcloud.topic.out`           | Name of the output topic.                           | `/pointcloud`|
+| `pointcloud.topic.out.cloud`     | Name of the output topic.                           | `/turret/cloud`|
+| `pointcloud.topic.in.angle`     | Name of the input topic where the turret angle is published.                           | `/turret/angle`|
+| `pointcloud.topic.in.scan`     | Name of the input topic where the LiDAR scan is published                           | `/scan`|
 | `pointcloud.frame_id`           | Name of the frame id of the output pointcloud.                           | `lidar_base`|
-| `pointcloud.max_num_layers`      | Maximum number of scan layers that can be accumulated.              | `200`|
 | `pointcloud.organized`             | Generate organized point clouds (true/false).      | `false`|
 | `pointcloud.azimuth.res_deg` | Azimuth angular resolution of the organized pointcloud in degrees.    | `0.225`|
 | `pointcloud.azimuth.fov_deg` | Azimuth Field of View (FOV) of the organized pointcloud in degrees.    | `360.0`|
@@ -77,12 +78,19 @@ ros2 launch rotating_lidar_accumulator accumulator_conf1.launch.py
 | Topic Name       | Message Type                         | Description                                      |
 |------------------|--------------------------------------|--------------------------------------------------|
 | `/scan`          | `sensor_msgs/msg/LaserScan`         | LiDAR scan data.                                |
-| `/angle`         | `sensor_msgs/msg/JointState`        | Rotational angle and velocity of the LiDAR (in rad).     |
+| `/turret/angle`         | `sensor_msgs/msg/JointState`        | Rotational angle and velocity of the LiDAR (in rad).     |
 
 The node uses `rclcpp::SensorDataQoS` for subscribers to prioritize low-latency communication for sensor data.
 ### Published Topics
 
+The accumulator node publishes a point cloud with points of type XYZIRT, meaning
+
+- XYZ: cartesian coordinates of the point
+- I: intensity of the point
+- R: ring 
+- T: timestamp of the point
+
 | Topic Name       | Message Type                         | Description                                      |
 |------------------|--------------------------------------|--------------------------------------------------|
-| `/pointcloud`    | `sensor_msgs/msg/PointCloud2`       | Generated 3D point cloud.                       |
+| `/turret/cloud`    | `sensor_msgs/msg/PointCloud2`       | Generated 3D point cloud.                       |
 
