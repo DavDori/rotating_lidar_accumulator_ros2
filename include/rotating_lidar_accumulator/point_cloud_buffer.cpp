@@ -3,51 +3,32 @@
 
 PointCloudBuffer::PointCloudBuffer()
     : PointCloudBuffer(
-        1, 
-        Eigen::Transform<float, 3, Eigen::Affine>::Identity(),
-        Eigen::Vector3f(0.0f,1.0f,0.0f))
-{
-}
-
-PointCloudBuffer::PointCloudBuffer(unsigned int num_layers)
-    : PointCloudBuffer(
-        num_layers, 
         Eigen::Transform<float, 3, Eigen::Affine>::Identity(),
         Eigen::Vector3f(0.0f,1.0f,0.0f))
 {
 }
 
 PointCloudBuffer::PointCloudBuffer(
-        unsigned int num_layers, 
         const Eigen::Transform<float, 3, Eigen::Affine>& lidar_offset, 
         const Eigen::Vector3f& turret_axis)
-        : num_layers_(num_layers),
-          lidar_offset_(lidar_offset),
-          turret_axis_(turret_axis),
-          idx_(0)
+        : lidar_offset_(lidar_offset),
+          turret_axis_(turret_axis)
 {
     reset();
 }
 
-
 void PointCloudBuffer::addScan(
-    const sensor_msgs::msg::LaserScan& scan,
+    const sensor_msgs::msg::LaserScan& msg,
     float angle_rad)
 {
-    addScan(ScanLayer(scan, lidar_offset_, turret_axis_, angle_rad));
-}
-
-void PointCloudBuffer::addScan(ScanLayer&& scan)
-{
-    if(scans_.size() == num_layers_) // at least one scan has been completed
+    if(dir_ < 0 && ring_ == 0) // skip the scan because ring_ must be positive or 0
     {
-        scans_.at(idx_) = std::move(scan);
+        return;
     }
-    else
-    {
-        scans_.emplace_back(std::move(scan));
-    }
-    idx_ = (idx_+1) % num_layers_;
+    ScanLayer scan(msg, lidar_offset_, turret_axis_, angle_rad, ring_, idx_);
+    scans_.emplace_back(std::move(scan));
+    idx_++;
+    ring_ += dir_;
 }
 
 /*
@@ -57,6 +38,18 @@ void PointCloudBuffer::reset()
 {
     scans_.clear();
     idx_ = 0;
+    ring_ = 0;
+    dir_ = 1;
+}
+
+/*
+When the turret is rotated, the scans are added in the opposite direction.
+*/
+void PointCloudBuffer::newSweep()
+{
+    scans_.clear();
+    idx_ = 0;
+    dir_ = -1 * dir_;
 }
 
 void PointCloudBuffer::enableOrganizedPointcloud(const PointCloudOrganizationParams& p)
@@ -75,9 +68,9 @@ void PointCloudBuffer::disableOrganizedPointcloud()
 /*
 Merge all pointclouds stored in the buffer so far
 */
-pcl::PointCloud<pcl::PointXYZI>::Ptr PointCloudBuffer::getTotalPointcloud()
+pcl::PointCloud<PointXYZIRT>::Ptr PointCloudBuffer::getTotalPointcloud()
 {
-    auto merged_pointcloud = std::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+    auto merged_pointcloud = std::make_shared<pcl::PointCloud<PointXYZIRT>>();
 
     // Estimate total size and reserve space to optimize performance
     size_t total_points = 0;
@@ -99,7 +92,7 @@ the settings, the pointcloud can be organized or not.
 */
 sensor_msgs::msg::PointCloud2 PointCloudBuffer::getTotalPointcloudROS()
 {
-    pcl::PointCloud<pcl::PointXYZI>::Ptr pc = getTotalPointcloud();
+    pcl::PointCloud<PointXYZIRT>::Ptr pc = getTotalPointcloud();
     sensor_msgs::msg::PointCloud2 cloud_msg;
 
     if(enable_organize_)
@@ -139,7 +132,7 @@ float PointCloudBuffer::getMinLayerAngleRad() const
     return current_candidate;
 }
 
-pcl::PointCloud<pcl::PointXYZI>::Ptr PointCloudBuffer::getScan(int index)
+pcl::PointCloud<PointXYZIRT>::Ptr PointCloudBuffer::getScan(int index)
 {
     return scans_.at(index).getPointCloud();
 }
