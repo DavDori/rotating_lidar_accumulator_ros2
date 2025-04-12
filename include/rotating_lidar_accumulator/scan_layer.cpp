@@ -5,10 +5,12 @@ ScanLayer::ScanLayer(
     const sensor_msgs::msg::LaserScan& scan_msg,
     const Eigen::Transform<float, 3, Eigen::Affine>& lidar_offset,
     const Eigen::Vector3f& rotation_axis,
-    float angle_rad
+    float angle_rad,
+    int ring_id,
+    int num_scan
     ) : timestamp_(scan_msg.header.stamp), angle_rad_(angle_rad)
 {
-    pc_ = convertLaserScanToPointCloud(scan_msg);
+    pc_ = convertLaserScanToPointCloud(scan_msg, ring_id, num_scan);
     if(!pc_ || pc_->empty()) 
     {
         throw std::invalid_argument("Input LaserScan resulted in an empty PointCloud.");
