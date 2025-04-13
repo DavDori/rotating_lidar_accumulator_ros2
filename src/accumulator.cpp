@@ -20,7 +20,8 @@
 #include "std_msgs/msg/bool.hpp"
 // Custom
 #include "rotating_lidar_accumulator/point_cloud_buffer.h"
-
+// Mutex for thread safety
+#include <mutex>
 
 bool hasVelocityChanged(double vel_prev, double vel)
 {
@@ -147,6 +148,7 @@ public:
 
     rclcpp::Time last_angle_time_;
     PointCloudBuffer buff_;
+    mutable std::mutex mutex_;
 
     double scan_angle_rad_;
     double scan_vel_radps_;
@@ -158,6 +160,7 @@ public:
     
     void laserCallback(const sensor_msgs::msg::LaserScan& msg)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         if(first_frame_)
         {
             return;
@@ -189,6 +192,7 @@ public:
 
     void angleCallback(const sensor_msgs::msg::JointState& msg)
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         if(msg.position.empty())
         {
             RCLCPP_WARN(this->get_logger(), "Received JointState message with no position data");
@@ -264,6 +268,7 @@ public:
 
     void publishPointcloud()
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         sensor_msgs::msg::PointCloud2 cloud_msg;
         try 
         {
