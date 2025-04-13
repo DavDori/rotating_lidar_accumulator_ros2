@@ -22,19 +22,23 @@
 #include "rotating_lidar_accumulator/point_cloud_buffer.h"
 // Mutex for thread safety
 #include <mutex>
-
+#include "rclcpp_components/register_node_macro.hpp"
 
 bool hasVelocityChanged(double vel_prev, double vel)
 {
     return vel_prev * vel < 0.0;
 }
 
+namespace rotating_lidar
+{
 class PointCloudAccumulator : public rclcpp::Node
 {
     using AffineTransform3f = Eigen::Transform<float, 3, Eigen::Affine>;
 
 public:
-    PointCloudAccumulator() : Node("point_cloud_accumulator")
+    PointCloudAccumulator() : PointCloudAccumulator(rclcpp::NodeOptions()) {}
+    PointCloudAccumulator(const rclcpp::NodeOptions & options)
+        : Node("point_cloud_accumulator", options)
     {
         declare_parameter("mech.lidar_offset_xyz_m", std::vector<float>{0.0f,0.0f,0.0f});
         declare_parameter("mech.lidar_offset_ypr_deg", std::vector<float>{0.0f,0.0f,0.0f});
@@ -88,7 +92,6 @@ public:
         // Set Quality Of Service for subscribers as sensor to prioritize the most
         // recent message, and improve reliability + low latency
         auto sensor_qos = rclcpp::QoS(rclcpp::SensorDataQoS());
-        
         // Initialize subscriptions
         laser_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
             topic_in_scan, 
@@ -288,16 +291,5 @@ public:
         }
     }
 };
-
-int main(int argc, char * argv[])
-{
-    rclcpp::init(argc, argv);
-    auto node = std::make_shared<PointCloudAccumulator>();
-
-    rclcpp::executors::MultiThreadedExecutor executor;
-    executor.add_node(node);
-    executor.spin();
-
-    rclcpp::shutdown();
-    return 0;
 }
+RCLCPP_COMPONENTS_REGISTER_NODE(PointCloudAccumulator)

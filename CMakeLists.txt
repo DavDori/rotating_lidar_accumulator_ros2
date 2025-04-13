@@ -18,6 +18,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
@@ -51,12 +52,43 @@ target_link_libraries(accumulator
   point_cloud_buffer
 )
 
-
 target_include_directories(accumulator PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
 
+
+# Component Library
+add_library(accumulator_component SHARED src/accumulator_component.cpp)
+
+target_compile_definitions(accumulator_component
+  PRIVATE "COMPOSITION_BUILDING_DLL")
+ament_target_dependencies(accumulator_component
+  Eigen3 
+  rclcpp 
+  std_msgs
+  geometry_msgs 
+  sensor_msgs
+  PCL
+  pcl_conversions
+  pcl_ros
+)
+rclcpp_components_register_nodes(accumulator_component "rotating_lidar::point_cloud_accumulator")
+set(node_plugins "${node_plugins}rotating_lidar::point_cloud_accumulator;$<TARGET_FILE:accumulator_component>\n")
+
+target_link_libraries(accumulator_component
+  point_cloud_buffer
+)
+
+ament_export_targets(export_accumulator_component)
+install(TARGETS accumulator_component
+        EXPORT export_accumulator_component
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+)
+
+# ----------------------------------------------------------------------
 ament_target_dependencies(accumulator 
   Eigen3 
   rclcpp 
@@ -87,6 +119,7 @@ ament_target_dependencies(conversion
 
 
 install(TARGETS
+  accumulator_component
   accumulator
   DESTINATION lib/${PROJECT_NAME}
 )
