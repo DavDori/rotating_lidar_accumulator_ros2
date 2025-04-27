@@ -23,7 +23,7 @@
 // Mutex for thread safety
 #include <mutex>
 
-bool hasVelocityChanged(double vel_prev, double vel)
+inline bool hasVelocityChanged(double vel_prev, double vel)
 {
     return vel_prev * vel < 0.0;
 }
@@ -160,39 +160,51 @@ public:
     
     void laserCallback(const sensor_msgs::msg::LaserScan& msg)
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        RCLCPP_INFO_ONCE(this->get_logger(), "Received a laser scan message");
         if(first_frame_)
         {
             return;
         }
-        try{
+
+        bool should_publish = false;
+
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
             if(is_new_sweep_)
             {
-                publishPointcloud();
-                RCLCPP_INFO(
-                    this->get_logger(), 
-                    "Published pointcloud made of %u layers", 
-                    buff_.getNumLayers());
-                buff_.newSweep();
+                should_publish = true;
                 is_new_sweep_ = false;
             }
 
             rclcpp::Time current_time = this->get_clock()->now();
             rclcpp::Duration time_difference = current_time - last_angle_time_;
             double dt_s = time_difference.seconds();
-
+            if (dt_s < 0.0)
+            {
+                RCLCPP_WARN(this->get_logger(),
+                    "Negative time interval (dt = %f) detected. Using last angle time instead.", 
+                    dt_s);
+                dt_s = 0.0;
+            }
             double current_angle_rad = predictScanAngle(dt_s);
             buff_.addScan(msg, current_angle_rad);
-        }
-        catch(const std::exception& e)
+        } // Unlocks here
+
+        if(should_publish)
         {
-            RCLCPP_ERROR(this->get_logger(), "Error in scanCallback: %s", e.what());
+            publishPointcloud();
+            RCLCPP_INFO(this->get_logger(), 
+                "Published cloud made of %u layers", 
+                buff_.getNumLayers());
+            buff_.newSweep();
         }
     }
+    
 
     void angleCallback(const sensor_msgs::msg::JointState& msg)
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        RCLCPP_INFO_ONCE(this->get_logger(), "Received an angle message");
+        // std::lock_guard<std::mutex> lock(mutex_);
         if(msg.position.empty())
         {
             RCLCPP_WARN(this->get_logger(), "Received JointState message with no position data");
