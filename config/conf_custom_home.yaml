@@ -1,0 +1,32 @@
+point_cloud_accumulator:
+  ros__parameters:
+    mech:
+      lidar_offset_xyz_m: 
+        - 0.0
+        - 0.0
+        - 0.02
+      lidar_offset_ypr_deg:
+        - 0.0
+        - 0.0
+        - 0.0
+      rotation_axis:
+        - -1.0
+        - 0.0
+        - 0.0
+    topic:
+      out:
+        cloud: "turret/lidar"
+      in:
+        angle: "/angle"
+        scan: "/scan"
+    pointcloud:
+      frame_id: "lidar_base"
+      enable_organized: false
+      azimuth:
+        res_deg: 0.225
+        fov_deg: 360.0
+        min_deg: -180.0
+      elevation:
+        res_deg: 1.0
+        fov_deg: 30.0
+        min_deg: -15.0
