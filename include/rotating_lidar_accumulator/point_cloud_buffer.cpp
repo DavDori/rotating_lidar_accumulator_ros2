@@ -6,6 +6,7 @@ PointCloudBuffer::PointCloudBuffer()
         Eigen::Transform<float, 3, Eigen::Affine>::Identity(),
         Eigen::Vector3f(0.0f,1.0f,0.0f))
 {
+    reset();
 }
 
 PointCloudBuffer::PointCloudBuffer(
@@ -21,14 +22,18 @@ void PointCloudBuffer::addScan(
     const sensor_msgs::msg::LaserScan& msg,
     float angle_rad)
 {
-    if(dir_ < 0 && ring_ == 0) // skip the scan because ring_ must be positive or 0
-    {
-        return;
-    }
-    ScanLayer scan(msg, lidar_offset_, turret_axis_, angle_rad, ring_, idx_);
+    ScanLayer scan(msg, lidar_offset_, turret_axis_, angle_rad, idx_, idx_);
     scans_.emplace_back(std::move(scan));
     idx_++;
-    ring_ += dir_;
+}
+
+void PointCloudBuffer::addScan(
+    const sensor_msgs::msg::LaserScan& msg, 
+    Eigen::Transform<float, 3, Eigen::Affine>& lidar_pose)
+{
+    ScanLayer scan(msg, lidar_pose, idx_, idx_);
+    scans_.emplace_back(std::move(scan));
+    idx_++;
 }
 
 /*
@@ -38,18 +43,6 @@ void PointCloudBuffer::reset()
 {
     scans_.clear();
     idx_ = 0;
-    ring_ = 0;
-    dir_ = 1;
-}
-
-/*
-When the turret is rotated, the scans are added in the opposite direction.
-*/
-void PointCloudBuffer::newSweep()
-{
-    scans_.clear();
-    idx_ = 0;
-    dir_ = -1 * dir_;
 }
 
 void PointCloudBuffer::enableOrganizedPointcloud(const PointCloudOrganizationParams& p)
@@ -90,7 +83,7 @@ pcl::PointCloud<PointXYZIRT>::Ptr PointCloudBuffer::getTotalPointcloud()
 Merge all pointclouds and returns a pointcloud2 message for ros2. Depending on 
 the settings, the pointcloud can be organized or not.
 */
-sensor_msgs::msg::PointCloud2 PointCloudBuffer::getTotalPointcloudROS()
+sensor_msgs::msg::PointCloud2 PointCloudBuffer::getTotalPointcloudROS(std::string frame_id)
 {
     pcl::PointCloud<PointXYZIRT>::Ptr pc = getTotalPointcloud();
     sensor_msgs::msg::PointCloud2 cloud_msg;
@@ -103,36 +96,7 @@ sensor_msgs::msg::PointCloud2 PointCloudBuffer::getTotalPointcloudROS()
     {
         pcl::toROSMsg(*pc, cloud_msg);  
     }
+    cloud_msg.header.stamp = getScanTime(0);
+    cloud_msg.header.frame_id = frame_id;
     return cloud_msg;
-}
-
-float PointCloudBuffer::getMaxLayerAngleRad() const
-{
-    float current_candidate = -M_PI;
-    for (size_t i = 0; i < scans_.size(); i++)
-    {
-        if(current_candidate < scans_.at(i).getAngleRad())
-        {
-            current_candidate = scans_.at(i).getAngleRad();
-        }
-    }
-    return current_candidate;
-}
-
-float PointCloudBuffer::getMinLayerAngleRad() const
-{
-    float current_candidate = M_PI;
-    for (size_t i = 0; i < scans_.size(); i++)
-    {
-        if(current_candidate > scans_.at(i).getAngleRad())
-        {
-            current_candidate = scans_.at(i).getAngleRad();
-        }
-    }
-    return current_candidate;
-}
-
-pcl::PointCloud<PointXYZIRT>::Ptr PointCloudBuffer::getScan(int index)
-{
-    return scans_.at(index).getPointCloud();
 }

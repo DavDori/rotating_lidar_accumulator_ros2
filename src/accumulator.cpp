@@ -16,8 +16,7 @@
 
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
-#include "sensor_msgs/msg/joint_state.hpp"
-#include "std_msgs/msg/bool.hpp"
+#include "std_msgs/msg/bool.hpp" 
 // Custom
 #include "rotating_lidar_accumulator/point_cloud_buffer.h"
 // Mutex for thread safety
@@ -29,6 +28,7 @@
 #include <tf2_eigen/tf2_eigen.hpp>
 
 
+std::atomic<bool> is_new_sweep;
 
 class PointCloudAccumulator : public rclcpp::Node
 {
@@ -37,15 +37,14 @@ class PointCloudAccumulator : public rclcpp::Node
 public:
     PointCloudAccumulator() : Node("point_cloud_accumulator")
     {
-        declare_parameter("mech.lidar_offset_xyz_m", std::vector<float>{0.0f,0.0f,0.0f});
-        declare_parameter("mech.lidar_offset_ypr_deg", std::vector<float>{0.0f,0.0f,0.0f});
-        declare_parameter("mech.rotation_axis", std::vector<float>{0.0f,1.0f,0.0f});
+        declare_parameter("mech.lidar_frame_id", "/trip/lidar_pitch_link");
         declare_parameter("topic.in.scan", "/scan");
-        declare_parameter("topic.in.angle", "/turret/angle");
+        declare_parameter("topic.in.trigger", "/new_sweep");
         declare_parameter("topic.out.cloud", "/turret/cloud");
 
-        declare_parameter("pointcloud.enable_organized", false);
         declare_parameter("pointcloud.frame_id", "/lidar_base");
+        declare_parameter("pointcloud.max_scans", 4);
+        declare_parameter("pointcloud.enable_organized", false);
         declare_parameter("pointcloud.azimuth.res_deg", 0.225);
         declare_parameter("pointcloud.azimuth.fov_deg", 360.0);
         declare_parameter("pointcloud.azimuth.min_deg", -180.0);
@@ -54,19 +53,18 @@ public:
         declare_parameter("pointcloud.elevation.min_deg", -15.0);
 
 
-        bool en_organzied_pointcloud = get_parameter("pointcloud.enable_organized").as_bool();
         std::string topic_in_scan = get_parameter("topic.in.scan").as_string();
-        std::string topic_in_angle = get_parameter("topic.in.angle").as_string();
+        std::string topic_in_trigger = get_parameter("topic.in.trigger").as_string();
         std::string topic_out_cloud = get_parameter("topic.out.cloud").as_string();
 
-        frame_id_ = get_parameter("pointcloud.frame_id").as_string();
-        // Initialize point cloud buffer
-        std::vector<float> rotation_axis_vec = 
-            convToFloat(get_parameter("mech.rotation_axis").as_double_array());
-        Eigen::Vector3f rotation_axis(rotation_axis_vec.data());
+        const bool en_organzied_pointcloud = get_parameter("pointcloud.enable_organized").as_bool();
+        lidar_frame_id_ = get_parameter("mech.lidar_frame_id").as_string();
+        base_frame_id_ = get_parameter("pointcloud.frame_id").as_string();
 
-        AffineTransform3f tform_offset = computeOffsetTransformation();
-        buff_ = PointCloudBuffer(tform_offset, rotation_axis);
+        max_num_scans_ = get_parameter("pointcloud.max_scans").as_int();
+
+        // Initialize point cloud buffer
+        buff_ = PointCloudBuffer();
 
         PointCloudOrganizationParams params;
         params.azim_res_rad = (float) 
@@ -95,31 +93,27 @@ public:
             sensor_qos, 
             std::bind(&PointCloudAccumulator::laserCallback, this, std::placeholders::_1));
 
-        angle_sub_ = create_subscription<sensor_msgs::msg::JointState>(
-            topic_in_angle, 
-            sensor_qos,
-            std::bind(&PointCloudAccumulator::angleCallback, this, std::placeholders::_1));
+        trigger_sub_ = create_subscription<std_msgs::msg::Bool>(
+            topic_in_trigger,
+            10,
+            std::bind(&PointCloudAccumulator::triggerSweepCallback, this, std::placeholders::_1));
 
         point_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
             topic_out_cloud, 5);
-
-        last_angle_time_ = this->get_clock()->now();
-        scan_angle_rad_ = 0.0;
-        scan_vel_radps_ = 0.0;
-
-        std::vector<double> offsets_xyz = get_parameter("mech.lidar_offset_xyz_m").as_double_array();
-        std::vector<double> offsets_ypr = get_parameter("mech.lidar_offset_ypr_deg").as_double_array();
+        
+        tf_buffer_ =
+            std::make_unique<tf2_ros::Buffer>(this->get_clock());
+        tf_listener_ =
+            std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
         std::ostringstream general_params;
         general_params << "\n--- Parameters ---\n"
-            << "  - LiDAR offset:\n"
-            << "      * xyz: [" << offsets_xyz[0] << ", " << offsets_xyz[1] << ", " << offsets_xyz[2] << "] m\n"
-            << "      * ypr: [" << offsets_ypr[0] << ", " << offsets_ypr[1] << ", " << offsets_ypr[2] << "] deg\n"
-            << "  - Turret rotation axis: [" << rotation_axis_vec[0] << ", " << rotation_axis_vec[1] << ", " << rotation_axis_vec[2] << "]\n"
             << "  - Topic in scan: " << topic_in_scan << "\n"
-            << "  - Topic in angle: " << topic_in_angle << "\n"
+            << "  - Topic in trigger: "         << topic_in_trigger << "\n"
             << "  - Topic out pointcloud: " << topic_out_cloud << "\n"
-            << "  - Pointcloud output frame id: " << frame_id_ << "\n"
+            << "  - Pointcloud output frame id: " << base_frame_id_ << "\n"
+            << "  - Scan input frame id: " << lidar_frame_id_ << "\n"
+            << "  - Collecting up to: " << max_num_scans_ << " scans" << "\n"
             << "  - Using organized pointcloud: " << (en_organzied_pointcloud ? "true" : "false") << "\n";
 
         RCLCPP_INFO(this->get_logger(), "%s", general_params.str().c_str());
@@ -145,150 +139,81 @@ public:
   private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr point_cloud_pub_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_sub_;
-    rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr angle_sub_;
-    std::string frame_id_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr trigger_sub_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_ { nullptr };
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::string base_frame_id_;
+    std::string lidar_frame_id_;
 
     rclcpp::Time last_angle_time_;
     PointCloudBuffer buff_;
     mutable std::mutex mutex_;
-
-    double scan_angle_rad_;
-    double scan_vel_radps_;
-
-    bool is_new_sweep_ = false;
-    bool first_frame_ = true;
+    uint8_t max_num_scans_;
 
 //--CALLBACKS------------------------------------------------------------------------
     
     void laserCallback(const sensor_msgs::msg::LaserScan& msg)
     {
         RCLCPP_INFO_ONCE(this->get_logger(), "Received a laser scan message");
-        if(first_frame_)
-        {
-            return;
-        }
-
-        bool should_publish = false;
-
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if(is_new_sweep_)
-            {
-                should_publish = true;
-                is_new_sweep_ = false;
-            }
-
-            rclcpp::Time current_time = this->get_clock()->now();
-            rclcpp::Duration time_difference = current_time - last_angle_time_;
-            double dt_s = time_difference.seconds();
-            if (dt_s < 0.0)
-            {
-                RCLCPP_WARN(this->get_logger(),
-                    "Negative time interval (dt = %f) detected. Using last angle time instead.", 
-                    dt_s);
-                dt_s = 0.0;
-            }
-            double current_angle_rad = predictScanAngle(dt_s);
-            buff_.addScan(msg, current_angle_rad);
-        } // Unlocks here
-
-        if(should_publish)
-        {
-            publishPointcloud();
-            RCLCPP_INFO(this->get_logger(), 
-                "Published cloud made of %u layers", 
-                buff_.getNumLayers());
-            buff_.newSweep();
-        }
-    }
-    
-
-    void angleCallback(const sensor_msgs::msg::JointState& msg)
-    {
-        RCLCPP_INFO_ONCE(this->get_logger(), "Received an angle message");
-        // std::lock_guard<std::mutex> lock(mutex_);
-        if(msg.position.empty())
-        {
-            RCLCPP_WARN(this->get_logger(), "Received JointState message with no position data");
-            return;
-        }
-        if(msg.velocity.empty())
-        {
-            RCLCPP_WARN(this->get_logger(), "Received JointState message with no velocity data");
-            return;
-        }
-        if(hasVelocityChanged(scan_vel_radps_, msg.velocity[0]))
-        {
-            is_new_sweep_ = true;
-            first_frame_ = false;
-        }
-        
-        // Update values
-        scan_angle_rad_ = msg.position[0];
-        scan_vel_radps_ = msg.velocity[0];
-        // Use the time of arrival as reference
-        last_angle_time_ = this->get_clock()->now();
-    }
-    
-//-----------------------------------------------------------------------------------------------
-
-    AffineTransform3f computeOffsetTransformation()
-    {
-        std::vector<float> offsets_xyz = convToFloat(get_parameter("mech.lidar_offset_xyz_m").as_double_array());
-        std::vector<float> offsets_ypr = convToFloat(get_parameter("mech.lidar_offset_ypr_deg").as_double_array());
-
-
-        if(offsets_xyz.empty() || offsets_ypr.empty())
-        {
-            RCLCPP_WARN(this->get_logger(), "Received offsets with no data. Returning Identity offset transofmration.");
-            return AffineTransform3f::Identity();
-        }
-
-        // Angles need to be converted from degress to radiants
-        float yaw_rad = offsets_ypr[0] * M_PI / 180.0;
-        float pitch_rad = offsets_ypr[1] * M_PI / 180.0;
-        float roll_rad = offsets_ypr[2] * M_PI / 180.0;
-
-        // Create a rotation matrix from Euler YPR Sequence
-        Eigen::Matrix3f rotation_matrix;
-        rotation_matrix = 
-            Eigen::AngleAxisf(yaw_rad, Eigen::Vector3f::UnitZ()) *
-            Eigen::AngleAxisf(pitch_rad, Eigen::Vector3f::UnitY()) *
-            Eigen::AngleAxisf(roll_rad, Eigen::Vector3f::UnitX());
-        
-        Eigen::Vector3f translation(offsets_xyz.data());
-        AffineTransform3f tform_offsets =
-            AffineTransform3f::Identity();
-        tform_offsets.translate(translation);
-        tform_offsets.rotate(rotation_matrix);
-
-        return tform_offsets;
-    }
-
-
-    double predictScanAngle(double dt)
-    {
-        // With the assumption of constant velocity, calculate the angle by Euler
-        // integration.
-        if(dt < 0.0)
-        {
-            RCLCPP_WARN(this->get_logger(),
-                "Negative time interval (dt = %f) provided for integration. Returning current scan angle value without integration.", 
-                dt);
-            return scan_angle_rad_;
-        }
-        return scan_angle_rad_ + scan_vel_radps_ * dt;
-    }
-
-    void publishPointcloud()
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        sensor_msgs::msg::PointCloud2 cloud_msg;
+        // Look up for the transformation between target_frame and turtle2 frames
+        // and send velocity commands for turtle2 to reach target_frame
+        AffineTransform3f lidar_tform;
         try 
         {
-            cloud_msg = buff_.getTotalPointcloudROS();
+            geometry_msgs::msg::TransformStamped t = 
+                tf_buffer_->lookupTransform( base_frame_id_, lidar_frame_id_, msg.header.stamp, rclcpp::Duration(1,0));
+            lidar_tform = tf2::transformToEigen(t).cast<float>();
+        } 
+        catch (const tf2::TransformException & ex) 
+        {
+            RCLCPP_INFO(
+                this->get_logger(), "Could not transform %s to %s: %s",
+                lidar_frame_id_.c_str(), base_frame_id_.c_str(), ex.what()
+            );
+            return;
+        }
+
+        RCLCPP_INFO(this->get_logger(), "messsage");
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if(is_new_sweep.load())
+            {
+                is_new_sweep.store(false);
+            }
+            buff_.addScan(msg, lidar_tform);
+
+            bool trigger_fired = is_new_sweep.exchange(false);
+            bool count_exceeded = buff_.getNumLayers() > max_num_scans_;
+
+            RCLCPP_INFO(
+                this->get_logger(), "Currntly %d scans", buff_.getNumLayers()
+            );
+
+            if (trigger_fired || count_exceeded)
+            {
+                publishPointcloud();
+                buff_.reset();
+            }
+        }
+    }
+
+    void triggerSweepCallback(const std_msgs::msg::Bool& msg)
+    {
+        if (msg.data) 
+        {
+            RCLCPP_INFO_ONCE(this->get_logger(), "New sweep triggered!");
+            is_new_sweep.store(true);
+        }
+    }
+
+    
+    void publishPointcloud()
+    {
+        try 
+        {
+            auto cloud_msg = buff_.getTotalPointcloudROS(base_frame_id_);
         
-            cloud_msg.header.frame_id = frame_id_;
+            cloud_msg.header.frame_id = base_frame_id_;
             cloud_msg.header.stamp = this->get_clock()->now();
 
             point_cloud_pub_->publish(cloud_msg);

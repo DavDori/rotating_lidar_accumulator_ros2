@@ -1,6 +1,7 @@
 point_cloud_accumulator:
   ros__parameters:
     mech:
+      use_tf_extrinsics: true
       lidar_offset_xyz_m: 
         - 0.0
         - 0.0

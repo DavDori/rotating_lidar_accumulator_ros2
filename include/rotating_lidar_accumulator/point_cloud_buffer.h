@@ -24,30 +24,28 @@ public:
             );
     ~PointCloudBuffer() {}
 
-    void addScan(const sensor_msgs::msg::LaserScan& scan, float angle_rad);
+    void addScan(const sensor_msgs::msg::LaserScan& msg, float angle_rad);
+    void addScan(const sensor_msgs::msg::LaserScan& msg, Eigen::Transform<float, 3, Eigen::Affine>& lidar_pose);
     void reset();
     void enableOrganizedPointcloud(const PointCloudOrganizationParams& p);
     void disableOrganizedPointcloud();
+
     pcl::PointCloud<PointXYZIRT>::Ptr getTotalPointcloud();
-    sensor_msgs::msg::PointCloud2 getTotalPointcloudROS();
-    pcl::PointCloud<PointXYZIRT>::Ptr getScan(int index);
+    sensor_msgs::msg::PointCloud2 getTotalPointcloudROS(std::string frame_id);
     uint8_t getNumLayers() const {return scans_.size();}
     uint8_t getCurrentIndex() const {return idx_;}
-    int getRing() const {return ring_;}
     PointCloudOrganizationParams getOrganizationParams() const {return organized_params_;}
-    float getMaxLayerAngleRad() const;
-    float getMinLayerAngleRad() const;
-    void newSweep();
 
 private:
     
+    rclcpp::Time getScanTime(uint8_t idx) const { return scans_.at(idx).getTime(); }
+
     Eigen::Transform<float, 3, Eigen::Affine> lidar_offset_;
     Eigen::Vector3f turret_axis_;
+
     std::vector<ScanLayer> scans_;
     PointCloudOrganizationParams organized_params_;
-    uint8_t idx_ = 0;
-    uint8_t ring_ = 0;
-    int dir_ = 1;
+    uint8_t idx_ { 0 };
     bool enable_organize_ = false;
 };
 
