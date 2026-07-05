@@ -11,7 +11,7 @@ from launch.substitutions import LaunchConfiguration
 def generate_launch_description():
     # Declare a launch argument for the config file name
     config_file_arg = launch.actions.DeclareLaunchArgument(
-        'config_file',
+        'config',
         default_value='conf_custom_home.yaml',
         description='Name of the config YAML file inside the config folder'
     )
@@ -31,7 +31,7 @@ def generate_launch_description():
     # Full path to the selected config file
     param_config_path = launch.substitutions.PathJoinSubstitution([
         config_dir,
-        LaunchConfiguration('config_file')
+        LaunchConfiguration('config')
     ])
 
     return LaunchDescription([
