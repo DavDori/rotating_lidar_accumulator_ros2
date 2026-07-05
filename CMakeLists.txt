@@ -25,6 +25,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(tf2_eigen REQUIRED)
 
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
@@ -66,6 +67,8 @@ ament_target_dependencies(accumulator
   PCL
   pcl_conversions
   pcl_ros
+  tf2_eigen
+  
 )
 
 ament_target_dependencies(scan_layer 

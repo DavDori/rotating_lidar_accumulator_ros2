@@ -22,11 +22,13 @@
 #include "rotating_lidar_accumulator/point_cloud_buffer.h"
 // Mutex for thread safety
 #include <mutex>
+// Tf2
+#include "tf2/exceptions.h"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
+#include <tf2_eigen/tf2_eigen.hpp>
 
-inline bool hasVelocityChanged(double vel_prev, double vel)
-{
-    return vel_prev * vel < 0.0;
-}
+
 
 class PointCloudAccumulator : public rclcpp::Node
 {
