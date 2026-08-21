@@ -13,7 +13,7 @@ point_cloud_accumulator:
     pointcloud:
       frame_id: "trip/lidar_pitch_link" # point cloud accumultare in this frame
       enable_organized: false
-      max_scans: 4
+      max_scans: 8
       azimuth:
         res_deg: 0.225
         fov_deg: 360.0
