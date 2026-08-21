@@ -35,6 +35,7 @@ public:
     uint8_t getNumLayers() const {return scans_.size();}
     uint8_t getCurrentIndex() const {return idx_;}
     PointCloudOrganizationParams getOrganizationParams() const {return organized_params_;}
+    rclcpp::Time getFirstTimestamp() const { return scans_.at(0).getTime(); }
 
 private:
     
