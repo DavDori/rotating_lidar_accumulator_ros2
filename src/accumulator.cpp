@@ -61,7 +61,7 @@ public:
         lidar_frame_id_ = get_parameter("mech.lidar_frame_id").as_string();
         base_frame_id_ = get_parameter("pointcloud.frame_id").as_string();
 
-        max_num_scans_ = get_parameter("pointcloud.max_scans").as_int();
+        max_num_scans_ = static_cast<uint8_t>(get_parameter("pointcloud.max_scans").as_int());
 
         // Initialize point cloud buffer
         buff_ = PointCloudBuffer();
@@ -113,7 +113,7 @@ public:
             << "  - Topic out pointcloud: " << topic_out_cloud << "\n"
             << "  - Pointcloud output frame id: " << base_frame_id_ << "\n"
             << "  - Scan input frame id: " << lidar_frame_id_ << "\n"
-            << "  - Collecting up to: " << max_num_scans_ << " scans" << "\n"
+            << "  - Collecting up to: " << static_cast<int>(max_num_scans_) << " scans" << "\n"
             << "  - Using organized pointcloud: " << (en_organzied_pointcloud ? "true" : "false") << "\n";
 
         RCLCPP_INFO(this->get_logger(), "%s", general_params.str().c_str());
@@ -173,7 +173,6 @@ public:
             return;
         }
 
-        RCLCPP_INFO(this->get_logger(), "messsage");
         {
             std::lock_guard<std::mutex> lock(mutex_);
             if(is_new_sweep.load())
@@ -184,10 +183,6 @@ public:
 
             bool trigger_fired = is_new_sweep.exchange(false);
             bool count_exceeded = buff_.getNumLayers() > max_num_scans_;
-
-            RCLCPP_INFO(
-                this->get_logger(), "Currntly %d scans", buff_.getNumLayers()
-            );
 
             if (trigger_fired || count_exceeded)
             {
@@ -214,7 +209,6 @@ public:
             auto cloud_msg = buff_.getTotalPointcloudROS(base_frame_id_);
         
             cloud_msg.header.frame_id = base_frame_id_;
-            cloud_msg.header.stamp = this->get_clock()->now();
 
             point_cloud_pub_->publish(cloud_msg);
             RCLCPP_DEBUG(this->get_logger(), "Published point cloud with %d points", cloud_msg.width * cloud_msg.height);
