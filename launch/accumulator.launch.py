@@ -7,6 +7,7 @@ import launch.substitutions
 import launch_ros.actions
 from launch import LaunchDescription
 from launch.substitutions import LaunchConfiguration
+from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
     # Declare a launch argument for the config file name
@@ -14,6 +15,12 @@ def generate_launch_description():
         'config',
         default_value='conf_custom_home.yaml',
         description='Name of the config YAML file inside the config folder'
+    )
+
+    use_sim_time_arg = launch.actions.DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='false',
+        description='Use /clock (e.g. from rosbag2 play --clock) instead of system time'
     )
 
     # Get the package config directory
@@ -28,12 +35,15 @@ def generate_launch_description():
         LaunchConfiguration('config')
     ])
 
+    use_sim_time = ParameterValue(LaunchConfiguration('use_sim_time'), value_type=bool)
+
     return LaunchDescription([
         config_file_arg,
+        use_sim_time_arg,
         launch_ros.actions.Node(
             package='rotating_lidar_accumulator',
             executable='accumulator',
             output='screen',
-            parameters=[param_config_path]  # Load parameters from the selected YAML file
+            parameters=[param_config_path, {'use_sim_time': use_sim_time}]  # Load parameters from the selected YAML file
         ),
     ])
