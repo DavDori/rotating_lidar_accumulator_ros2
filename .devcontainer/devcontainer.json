@@ -1,0 +1,53 @@
+{
+  "name": "rotating lidar accumulator (ROS 2 Humble, headless)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".",
+    "args": {
+      "USERNAME": "dev",
+      "USER_UID": "1000",
+      "USER_GID": "1000"
+    }
+  },
+  "remoteUser": "dev",
+  "workspaceFolder": "/workspace/src/rotating_lidar_accumulator",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/src/rotating_lidar_accumulator,type=bind",
+
+  "runArgs": [
+    "--net=host",
+    "--ipc=host",
+    "--cap-add=SYS_PTRACE",
+    "--security-opt=seccomp=unconfined"
+  ],
+
+  "containerEnv": {
+    "ROS_DOMAIN_ID": "0",
+    "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp",
+    "CCACHE_DIR": "/home/dev/.ccache",
+    "CMAKE_C_COMPILER_LAUNCHER": "ccache",
+    "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
+  },
+
+  "mounts": [
+    "source=rotating_lidar_accumulator-ccache,target=/home/dev/.ccache,type=volume"
+  ],
+
+  "postCreateCommand": "sudo chown -R dev:dev /home/dev/.ccache && rosdep update",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-iot.vscode-ros",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "ms-python.python",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "cmake.configureOnOpen": false
+      }
+    }
+  }
+}
