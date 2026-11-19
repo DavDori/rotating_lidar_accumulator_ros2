@@ -31,6 +31,58 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
+add_library(pcl_system_headers INTERFACE)
+target_include_directories(pcl_system_headers SYSTEM INTERFACE
+  ${PCL_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
+)
+
+file(GLOB_RECURSE LIB_SOURCES CONFIGURE_DEPENDS
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/core/*.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/utils/*.cpp
+)
+
+add_library(${PROJECT_NAME}_lib STATIC ${LIB_SOURCES})
+
+# Attach headers to library 
+target_include_directories(${PROJECT_NAME}_lib PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+target_link_libraries(${PROJECT_NAME}_lib 
+  pcl_system_headers 
+)
+
+ament_target_dependencies(${PROJECT_NAME}_lib
+  Eigen3 
+  sensor_msgs
+  PCL
+  pcl_conversions
+  pcl_ros
+  tf2_eigen
+  rclcpp
+)
+
+add_executable(accumulator node/accumulator.cpp)
+target_link_libraries(accumulator
+  ${PROJECT_NAME}_lib
+)
+
+ament_target_dependencies(accumulator
+  PCL
+  pcl_conversions
+  pcl_ros
+)
+
+target_include_directories(accumulator PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+install(TARGETS
+  accumulator
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 install(DIRECTORY
   launch
@@ -38,86 +90,4 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
-add_library(conversion include/${PROJECT_NAME}/conversion.cpp)
-add_library(scan_layer include/${PROJECT_NAME}/scan_layer.cpp)
-add_library(point_cloud_buffer include/${PROJECT_NAME}/point_cloud_buffer.cpp)
-
-add_executable(accumulator src/accumulator.cpp)
-
-target_link_libraries(scan_layer conversion)
-target_link_libraries(point_cloud_buffer scan_layer)
-
-target_link_libraries(accumulator
-  ${catkin_LIBRARIES}  
-  point_cloud_buffer
-)
-
-
-target_include_directories(accumulator PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-
-ament_target_dependencies(accumulator 
-  Eigen3 
-  rclcpp 
-  std_msgs
-  geometry_msgs 
-  sensor_msgs
-  PCL
-  pcl_conversions
-  pcl_ros
-  tf2_eigen
-  
-)
-
-ament_target_dependencies(scan_layer 
-  Eigen3 
-  rclcpp 
-  sensor_msgs
-  PCL
-  pcl_conversions
-  pcl_ros
-)
-
-ament_target_dependencies(conversion 
-  rclcpp 
-  sensor_msgs
-  PCL
-  pcl_conversions
-  pcl_ros
-)
-
-
-install(TARGETS
-  accumulator
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-# if(BUILD_TESTING)
-#   find_package(ament_lint_auto REQUIRED)
-#   find_package(ament_cmake_gtest REQUIRED)
-
-#   ament_add_gtest(${PROJECT_NAME}_test 
-#     test/main.cpp
-#     test/conversion_unittest.cpp
-#     test/scan_layer_unittest.cpp
-#   )
-#   target_include_directories(${PROJECT_NAME}_test PUBLIC
-#     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-#     $<INSTALL_INTERFACE:include>
-#   )
-#   ament_target_dependencies(${PROJECT_NAME}_test
-#     Eigen3 
-#     rclcpp 
-#     geometry_msgs 
-#     sensor_msgs
-#     std_msgs
-#     PCL
-#     pcl_conversions
-#     pcl_ros
-#   )
-#   target_link_libraries(${PROJECT_NAME}_test conversion)
-#   target_link_libraries(${PROJECT_NAME}_test scan_layer)
-# endif()
 ament_package()
