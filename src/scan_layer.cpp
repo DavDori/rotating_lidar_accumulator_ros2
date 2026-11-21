@@ -1,51 +1,55 @@
 #include "rotating_lidar_accumulator/scan_layer.hpp"
 
-ScanLayer::ScanLayer(
-    const sensor_msgs::msg::LaserScan& scan_msg,
-    const Eigen::Transform<float, 3, Eigen::Affine>& lidar_offset,
-    const Eigen::Vector3f& rotation_axis, float angle_rad,
-    double time_increment, int ring_id, int num_scan)
-    : timestamp_(scan_msg.header.stamp) {
-    pc_ = convertLaserScanToPointCloud(scan_msg, time_increment, ring_id,
-                                       num_scan);
-    if (!pc_ || pc_->empty()) {
-        throw std::invalid_argument(
-            "Input LaserScan resulted in an empty PointCloud.");
-    }
-    // First rotation corresponding to the offsets
-    pcl::transformPointCloud(*pc_, *pc_, lidar_offset);
+#include <pcl_conversions/pcl_conversions.h>
 
-    Eigen::Quaternionf rotation_quaternion(
-        Eigen::AngleAxisf(angle_rad, rotation_axis.normalized()));
-    pcl::transformPointCloud(*pc_, *pc_, Eigen::Vector3f::Zero(),
-                             rotation_quaternion);
+#include "rotating_lidar_accumulator/utils/conversion_ros2.hpp"
+
+namespace rla {
+
+namespace {
+
+Eigen::Affine3f makeLidarPose(const Eigen::Affine3f& lidar_offset,
+                              const Eigen::Vector3f& rotation_axis,
+                              float angle_rad) {
+    return lidar_offset *
+           Eigen::AngleAxisf(angle_rad, rotation_axis.normalized());
 }
+
+}  // namespace
 
 ScanLayer::ScanLayer(
     const sensor_msgs::msg::LaserScan& scan_msg,
     const Eigen::Transform<float, 3, Eigen::Affine>& lidar_pose,
-    double time_increment, int ring_id, int num_scan)
+    const utils::ScanInfo& info)
     : timestamp_(scan_msg.header.stamp) {
-    pc_ = convertLaserScanToPointCloud(scan_msg, time_increment, ring_id,
-                                       num_scan);
-    if (!pc_ || pc_->empty()) {
-        throw std::invalid_argument(
-            "Input LaserScan resulted in an empty PointCloud.");
+    auto cloud = utils::convertLaserScanToPointCloud(scan_msg, info);
+    if (!cloud) {
+        throw std::runtime_error("Could not convert scan into point cloud.");
     }
+    pc_ = std::make_shared<pcl::PointCloud<core::PointXYZIRT>>(*cloud);
+
     // Transform the lidar scan with a single transformation that already takes
     // into account for the rotation of the lidar.
     pcl::transformPointCloud(*pc_, *pc_, lidar_pose);
 }
 
+ScanLayer::ScanLayer(
+    const sensor_msgs::msg::LaserScan& scan_msg,
+    const Eigen::Transform<float, 3, Eigen::Affine>& lidar_offset,
+    const Eigen::Vector3f& rotation_axis, float angle_rad,
+    const utils::ScanInfo& info)
+    : ScanLayer(scan_msg, makeLidarPose(lidar_offset, rotation_axis, angle_rad),
+                info) {}
+
 ScanLayer::ScanLayer(const ScanLayer& other)
     : timestamp_(other.timestamp_),
-      pc_(std::make_shared<pcl::PointCloud<PointXYZIRT>>(*other.pc_)) {}
+      pc_(std::make_shared<pcl::PointCloud<core::PointXYZIRT>>(*other.pc_)) {}
 
 ScanLayer& ScanLayer::operator=(const ScanLayer& other) {
     if (this != &other) {
         // Deep copy of the point cloud
         timestamp_ = other.timestamp_;
-        pc_ = std::make_shared<pcl::PointCloud<PointXYZIRT>>(*other.pc_);
+        pc_ = std::make_shared<pcl::PointCloud<core::PointXYZIRT>>(*other.pc_);
     }
     return *this;
 }
@@ -64,3 +68,4 @@ ScanLayer& ScanLayer::operator=(ScanLayer&& other) noexcept {
     }
     return *this;
 }
+}  // namespace rla

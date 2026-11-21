@@ -1,6 +1,6 @@
 #include "rotating_lidar_accumulator/core/duration.hpp"
 
-namespace core {
+namespace rla::core {
 void Duration::normalize() {
     int64_t total_ns = static_cast<int64_t>(sec_) * BILLION + nanosec_;
 
@@ -71,4 +71,4 @@ std::ostream& Duration::operator<<(std::ostream& os) const {
 
 inline void Duration::print() const { printf("%d.%09d\n", sec_, nanosec_); }
 
-}  // namespace slam::core
+}  // namespace rla::core

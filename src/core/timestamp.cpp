@@ -1,6 +1,6 @@
 #include "rotating_lidar_accumulator/core/timestamp.hpp"
 
-namespace core {
+namespace rla::core {
 
 void Timestamp::normalize() {
     int64_t total_ns = static_cast<int64_t>(sec_) * BILLION + nanosec_;
@@ -76,4 +76,4 @@ std::ostream& Timestamp::operator<<(std::ostream& os) const {
 
 void Timestamp::print() const { printf("%d.%09d\n", sec_, nanosec_); }
 
-}  // namespace slam::core
+}  // namespace rla::core

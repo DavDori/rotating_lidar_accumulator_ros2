@@ -1,58 +1,9 @@
-#ifndef CONVERSION_H
-#define CONVERSION_H
+#pragma once
 
-#include <pcl/common/transforms.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
+#include <vector>
 
-#include <sensor_msgs/msg/laser_scan.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <sensor_msgs/point_cloud2_iterator.hpp>
+namespace rla::utils {
 
-#include "rclcpp/rclcpp.hpp"
+[[nodiscard]] std::vector<float> convToFloat(const std::vector<double>& input);
 
-struct PointXYZIRT {
-    PCL_ADD_POINT4D
-    PCL_ADD_INTENSITY
-    uint16_t ring;
-    uint32_t t;  //!< Time with respect to pointcloud start (ns).
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-} EIGEN_ALIGN16;
-
-POINT_CLOUD_REGISTER_POINT_STRUCT(
-    PointXYZIRT,
-    (float, x, x)(float, y, y)(float, z, z)(float, intensity,
-                                            intensity)(uint16_t, ring,
-                                                       ring)(uint32_t, t, t))
-
-struct PointCloudOrganizationParams {
-    float azim_fov_rad = 0.0f;
-    float azim_res_rad = 0.0f;
-    float azim_min_rad = 0.0f;
-    float elev_fov_rad = 0.0f;
-    float elev_res_rad = 0.0f;
-    float elev_min_rad = 0.0f;
-};
-
-pcl::PointCloud<PointXYZIRT>::Ptr convertLaserScanToPointCloud(
-    const sensor_msgs::msg::LaserScan& scan_msg, double time_increment,
-    int ring_id, int num_scan);
-
-inline PointXYZIRT convertScanRayToPoint(float range, float angle,
-                                         float intensity);
-
-inline bool isRangeInvalid(float range, float max_range);
-
-sensor_msgs::msg::PointCloud2 organizePointCloud2(
-    const pcl::PointCloud<PointXYZIRT>::Ptr& unorganized_cloud,
-    const PointCloudOrganizationParams& params);
-
-inline int calculatePointCol(const PointXYZIRT& point,
-                             const PointCloudOrganizationParams& params);
-
-inline int calculatePointRow(const PointXYZIRT& point,
-                             const PointCloudOrganizationParams& params);
-
-std::vector<float> convToFloat(const std::vector<double>& input);
-
-#endif
+}

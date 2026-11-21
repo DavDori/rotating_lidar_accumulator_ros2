@@ -1,5 +1,7 @@
 #include "rotating_lidar_accumulator/point_cloud_buffer.hpp"
 
+namespace rla {
+
 PointCloudBuffer::PointCloudBuffer()
     : PointCloudBuffer(Eigen::Transform<float, 3, Eigen::Affine>::Identity(),
                        Eigen::Vector3f(0.0f, 1.0f, 0.0f)) {
@@ -14,19 +16,26 @@ PointCloudBuffer::PointCloudBuffer(
 }
 
 void PointCloudBuffer::addScan(const sensor_msgs::msg::LaserScan& msg,
-                               double time_increment, float angle_rad) {
-    ScanLayer scan(msg, lidar_offset_, turret_axis_, angle_rad, time_increment,
-                   idx_, idx_);
+                               uint32_t scan_duration, float angle_rad) {
+    utils::ScanInfo info;
+    info.rel_scan_start = scan_duration * static_cast<uint32_t>(idx_);
+    info.ring_id = static_cast<uint16_t>(idx_);
+    info.scan_duration = scan_duration;
+    ScanLayer scan(msg, lidar_offset_, turret_axis_, angle_rad, info);
     scans_.emplace_back(std::move(scan));
-    idx_++;
+    ++idx_;
 }
 
 void PointCloudBuffer::addScan(
-    const sensor_msgs::msg::LaserScan& msg, double time_increment,
+    const sensor_msgs::msg::LaserScan& msg, uint32_t scan_duration,
     Eigen::Transform<float, 3, Eigen::Affine>& lidar_pose) {
-    ScanLayer scan(msg, lidar_pose, time_increment, idx_, idx_);
+    utils::ScanInfo info;
+    info.rel_scan_start = scan_duration * static_cast<uint32_t>(idx_);
+    info.ring_id = static_cast<uint16_t>(idx_);
+    info.scan_duration = scan_duration;
+    ScanLayer scan(msg, lidar_pose, info);
     scans_.emplace_back(std::move(scan));
-    idx_++;
+    ++idx_;
 }
 
 /*
@@ -38,7 +47,7 @@ void PointCloudBuffer::reset() {
 }
 
 void PointCloudBuffer::enableOrganizedPointcloud(
-    const PointCloudOrganizationParams& p) {
+    const utils::PointCloudOrganizationParams& p) {
     organized_params_ = p;
     enable_organize_ = true;
 }
@@ -53,8 +62,9 @@ void PointCloudBuffer::disableOrganizedPointcloud() {
 /*
 Merge all pointclouds stored in the buffer so far
 */
-pcl::PointCloud<PointXYZIRT>::Ptr PointCloudBuffer::getTotalPointcloud() {
-    auto merged_pointcloud = std::make_shared<pcl::PointCloud<PointXYZIRT>>();
+pcl::PointCloud<core::PointXYZIRT>::Ptr PointCloudBuffer::getTotalPointcloud() {
+    auto merged_pointcloud =
+        std::make_shared<pcl::PointCloud<core::PointXYZIRT>>();
 
     // Estimate total size and reserve space to optimize performance
     size_t total_points = 0;
@@ -76,7 +86,7 @@ the settings, the pointcloud can be organized or not.
 */
 sensor_msgs::msg::PointCloud2 PointCloudBuffer::getTotalPointcloudROS(
     std::string frame_id) {
-    pcl::PointCloud<PointXYZIRT>::Ptr pc = getTotalPointcloud();
+    pcl::PointCloud<core::PointXYZIRT>::Ptr pc = getTotalPointcloud();
     sensor_msgs::msg::PointCloud2 cloud_msg;
 
     if (enable_organize_) {
@@ -88,3 +98,4 @@ sensor_msgs::msg::PointCloud2 PointCloudBuffer::getTotalPointcloudROS(
     cloud_msg.header.frame_id = frame_id;
     return cloud_msg;
 }
+}  // namespace rla

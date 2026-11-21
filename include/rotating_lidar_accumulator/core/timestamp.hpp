@@ -7,7 +7,7 @@
 
 #include "rotating_lidar_accumulator/core/duration.hpp"
 
-namespace core {
+namespace rla::core {
 
 class Timestamp {
    private:
@@ -85,4 +85,4 @@ class Timestamp {
     void print() const;
 };
 
-}  // namespace core
+}  // namespace rla::core

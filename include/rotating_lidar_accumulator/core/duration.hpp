@@ -5,7 +5,7 @@
 #include <iomanip>
 #include <ostream>
 
-namespace core {
+namespace rla::core {
 
 constexpr int64_t BILLION = 1'000'000'000LL;
 
@@ -68,4 +68,4 @@ class Duration {
     void print() const;
 };
 
-}  // namespace core
+}  // namespace rla::core

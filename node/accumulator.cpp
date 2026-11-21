@@ -63,9 +63,9 @@ class PointCloudAccumulator : public rclcpp::Node {
             get_parameter("pointcloud.max_scans").as_int());
 
         // Initialize point cloud buffer
-        buff_ = PointCloudBuffer();
+        buff_ = rla::PointCloudBuffer();
 
-        PointCloudOrganizationParams params;
+        rla::utils::PointCloudOrganizationParams params;
         params.azim_res_rad = (float)DEG2RAD(
             get_parameter("pointcloud.azimuth.res_deg").as_double());
         params.azim_fov_rad = (float)DEG2RAD(
@@ -154,10 +154,10 @@ class PointCloudAccumulator : public rclcpp::Node {
     std::string base_frame_id_;
     std::string lidar_frame_id_;
 
-    std::optional<core::Timestamp> last_stamp_;
-    std::optional<core::Duration> scan_time_;
+    std::optional<rla::core::Timestamp> last_stamp_;
+    std::optional<rla::core::Duration> scan_time_;
     rclcpp::Time last_angle_time_;
-    PointCloudBuffer buff_;
+    rla::PointCloudBuffer buff_;
     mutable std::mutex mutex_;
     uint8_t max_num_scans_;
 
@@ -170,7 +170,7 @@ class PointCloudAccumulator : public rclcpp::Node {
         if (!last_stamp_) {
             // Use first scan to have a reference of the delta time between
             // scans.
-            last_stamp_ = utils::fromROS2(msg.header.stamp);
+            last_stamp_ = rla::utils::fromROS2(msg.header.stamp);
             return;
         }
         AffineTransform3f lidar_tform;
@@ -181,24 +181,27 @@ class PointCloudAccumulator : public rclcpp::Node {
                                             rclcpp::Duration(1, 0));
             lidar_tform = tf2::transformToEigen(t).cast<float>();
         } catch (const tf2::TransformException& ex) {
-            RCLCPP_INFO(this->get_logger(), "Could not transform %s to %s: %s",
+            RCLCPP_WARN(this->get_logger(), "Could not transform %s to %s: %s",
                         lidar_frame_id_.c_str(), base_frame_id_.c_str(),
                         ex.what());
             return;
         }
-        double time_increment = msg.time_increment;
-        if (time_increment == 0.0) {
+        uint32_t scan_duration =
+            static_cast<uint32_t>(msg.time_increment * 1000.0f);
+        if (scan_duration == 0) {
             if (!scan_time_) {
-                scan_time_ = utils::fromROS2(msg.header.stamp) - *last_stamp_;
+                scan_time_ =
+                    rla::utils::fromROS2(msg.header.stamp) - *last_stamp_;
             }
-            time_increment = scan_time_->getTimeInSeconds();
+            scan_duration =
+                static_cast<uint32_t>(scan_time_->getTimeInSeconds() * 1000.0);
         }
         {
             std::lock_guard<std::mutex> lock(mutex_);
             if (is_new_sweep.load()) {
                 is_new_sweep.store(false);
             }
-            buff_.addScan(msg, time_increment, lidar_tform);
+            buff_.addScan(msg, scan_duration, lidar_tform);
 
             bool trigger_fired = is_new_sweep.exchange(false);
             bool count_exceeded = buff_.getNumLayers() > max_num_scans_;
