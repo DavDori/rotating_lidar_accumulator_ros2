@@ -46,7 +46,13 @@
       ],
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",
-        "cmake.configureOnOpen": false
+        "cmake.configureOnOpen": false,
+        "clangd.arguments": [
+          "--compile-commands-dir=/workspace/build/rotating_lidar_accumulator",
+          "--background-index",
+          "--header-insertion=never"
+        ],
+        "C_Cpp.intelliSenseEngine": "disabled" // avoid conflicts with clangd
       }
     }
   }
