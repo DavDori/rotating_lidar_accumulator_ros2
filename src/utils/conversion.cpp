@@ -1,30 +1,36 @@
 #include "rotating_lidar_accumulator/utils/conversion.hpp"
 
+#include <iostream>
+
+#include "rotating_lidar_accumulator/core/duration.hpp"
+
 /*
  The ring id referse to the layer of the scan. Starting from zero when the
  turret is at the bottom and increasing as the turret rotates upwards. The
  num_scan refers to the number of scans that have been accumulated so far.
 */
 pcl::PointCloud<PointXYZIRT>::Ptr convertLaserScanToPointCloud(
-    const sensor_msgs::msg::LaserScan& scan_msg, int ring_id, int num_scan) {
-    float angle_min = scan_msg.angle_min;
-    float angle_increment = scan_msg.angle_increment;
-    float time_increment = scan_msg.time_increment;
-    float time_offset =
-        num_scan *
-        scan_msg.scan_time;  // assuming every scan has the same scan time
-
-    pcl::PointCloud<PointXYZIRT>::Ptr pcl_cloud(
-        new pcl::PointCloud<PointXYZIRT>);
-
+    const sensor_msgs::msg::LaserScan& scan_msg, double time_increment,
+    int ring_id, int num_scan) {
+    const float angle_min = scan_msg.angle_min;
+    const float angle_increment = scan_msg.angle_increment;
+    const uint32_t time_increment_mus =
+        static_cast<uint32_t>(time_increment * 1'000'000);
+    const uint32_t time_offset_mus =
+        static_cast<uint32_t>(num_scan * time_increment_mus);
+    const size_t n = scan_msg.ranges.size();
+    const uint32_t delta_time_per_point_mus =
+        static_cast<uint32_t>(time_increment_mus / n);
+    auto pcl_cloud = std::make_shared<pcl::PointCloud<PointXYZIRT>>();
+    pcl_cloud->reserve(n);
     // Iterate through LaserScan data and populate PCL PointCloud
-    for (size_t i = 0; i < scan_msg.ranges.size(); i++) {
-        float range = scan_msg.ranges[i];
-        float angle = angle_min + i * angle_increment;
-        float intensity = scan_msg.intensities[i];
+    for (size_t i = 0; i < n; i++) {
+        const float range = scan_msg.ranges[i];
+        const float angle = angle_min + i * angle_increment;
+        const float intensity = scan_msg.intensities[i];
         PointXYZIRT point = convertScanRayToPoint(range, angle, intensity);
         point.ring = ring_id;
-        point.t = time_offset + i * time_increment;
+        point.t = time_offset_mus + i * delta_time_per_point_mus;
         pcl_cloud->push_back(std::move(point));
     }
     return pcl_cloud;

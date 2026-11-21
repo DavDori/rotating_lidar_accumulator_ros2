@@ -15,7 +15,7 @@ struct PointXYZIRT {
     PCL_ADD_POINT4D
     PCL_ADD_INTENSITY
     uint16_t ring;
-    uint32_t t;
+    uint32_t t;  //!< Time with respect to pointcloud start (ns).
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 } EIGEN_ALIGN16;
 
@@ -35,7 +35,8 @@ struct PointCloudOrganizationParams {
 };
 
 pcl::PointCloud<PointXYZIRT>::Ptr convertLaserScanToPointCloud(
-    const sensor_msgs::msg::LaserScan& scan_msg, int ring_id, int num_scan);
+    const sensor_msgs::msg::LaserScan& scan_msg, double time_increment,
+    int ring_id, int num_scan);
 
 inline PointXYZIRT convertScanRayToPoint(float range, float angle,
                                          float intensity);

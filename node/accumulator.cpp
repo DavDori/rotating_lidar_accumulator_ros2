@@ -2,19 +2,20 @@
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-#include <chrono>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
-#include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <tf2_eigen/tf2_eigen.hpp>
-#include <vector>
 
 #include "rclcpp/logging.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rotating_lidar_accumulator/core/duration.hpp"
+#include "rotating_lidar_accumulator/core/timestamp.hpp"
 #include "rotating_lidar_accumulator/point_cloud_buffer.hpp"
+#include "rotating_lidar_accumulator/utils/conversion_ros2.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -153,6 +154,8 @@ class PointCloudAccumulator : public rclcpp::Node {
     std::string base_frame_id_;
     std::string lidar_frame_id_;
 
+    std::optional<core::Timestamp> last_stamp_;
+    std::optional<core::Duration> scan_time_;
     rclcpp::Time last_angle_time_;
     PointCloudBuffer buff_;
     mutable std::mutex mutex_;
@@ -164,6 +167,12 @@ class PointCloudAccumulator : public rclcpp::Node {
         RCLCPP_INFO_ONCE(this->get_logger(), "Received a laser scan message");
         // Look up for the transformation between target_frame and turtle2
         // frames and send velocity commands for turtle2 to reach target_frame
+        if (!last_stamp_) {
+            // Use first scan to have a reference of the delta time between
+            // scans.
+            last_stamp_ = utils::fromROS2(msg.header.stamp);
+            return;
+        }
         AffineTransform3f lidar_tform;
         try {
             geometry_msgs::msg::TransformStamped t =
@@ -177,13 +186,19 @@ class PointCloudAccumulator : public rclcpp::Node {
                         ex.what());
             return;
         }
-
+        double time_increment = msg.time_increment;
+        if (time_increment == 0.0) {
+            if (!scan_time_) {
+                scan_time_ = utils::fromROS2(msg.header.stamp) - *last_stamp_;
+            }
+            time_increment = scan_time_->getTimeInSeconds();
+        }
         {
             std::lock_guard<std::mutex> lock(mutex_);
             if (is_new_sweep.load()) {
                 is_new_sweep.store(false);
             }
-            buff_.addScan(msg, lidar_tform);
+            buff_.addScan(msg, time_increment, lidar_tform);
 
             bool trigger_fired = is_new_sweep.exchange(false);
             bool count_exceeded = buff_.getNumLayers() > max_num_scans_;

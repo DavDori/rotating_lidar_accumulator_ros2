@@ -14,16 +14,17 @@ PointCloudBuffer::PointCloudBuffer(
 }
 
 void PointCloudBuffer::addScan(const sensor_msgs::msg::LaserScan& msg,
-                               float angle_rad) {
-    ScanLayer scan(msg, lidar_offset_, turret_axis_, angle_rad, idx_, idx_);
+                               double time_increment, float angle_rad) {
+    ScanLayer scan(msg, lidar_offset_, turret_axis_, angle_rad, time_increment,
+                   idx_, idx_);
     scans_.emplace_back(std::move(scan));
     idx_++;
 }
 
 void PointCloudBuffer::addScan(
-    const sensor_msgs::msg::LaserScan& msg,
+    const sensor_msgs::msg::LaserScan& msg, double time_increment,
     Eigen::Transform<float, 3, Eigen::Affine>& lidar_pose) {
-    ScanLayer scan(msg, lidar_pose, idx_, idx_);
+    ScanLayer scan(msg, lidar_pose, time_increment, idx_, idx_);
     scans_.emplace_back(std::move(scan));
     idx_++;
 }

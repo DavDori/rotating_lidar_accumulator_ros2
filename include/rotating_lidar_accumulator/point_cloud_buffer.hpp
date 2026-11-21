@@ -23,8 +23,9 @@ class PointCloudBuffer {
         const Eigen::Vector3f& turret_axis);
     ~PointCloudBuffer() {}
 
-    void addScan(const sensor_msgs::msg::LaserScan& msg, float angle_rad);
-    void addScan(const sensor_msgs::msg::LaserScan& msg,
+    void addScan(const sensor_msgs::msg::LaserScan& msg, double time_increment,
+                 float angle_rad);
+    void addScan(const sensor_msgs::msg::LaserScan& msg, double time_increment,
                  Eigen::Transform<float, 3, Eigen::Affine>& lidar_pose);
     void reset();
     void enableOrganizedPointcloud(const PointCloudOrganizationParams& p);

@@ -24,10 +24,10 @@ class ScanLayer {
     ScanLayer(const sensor_msgs::msg::LaserScan& scan_msg,
               const Eigen::Transform<float, 3, Eigen::Affine>& lidar_offset,
               const Eigen::Vector3f& rotation_axis, float angle_rad,
-              int ring_id, int num_scan);
+              double time_increment, int ring_id, int num_scan);
     ScanLayer(const sensor_msgs::msg::LaserScan& scan_msg,
               const Eigen::Transform<float, 3, Eigen::Affine>& lidar_pose,
-              int ring_id, int num_scan);
+              double time_increment, int ring_id, int num_scan);
     ScanLayer(const ScanLayer& other);
     ScanLayer& operator=(const ScanLayer& other);
     ScanLayer(ScanLayer&& other) noexcept;
